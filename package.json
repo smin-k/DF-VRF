@@ -1,0 +1,17 @@
+{
+  "name": "df-vrf",
+  "version": "0.1.0",
+  "description": "Deterministic Falcon-based VRF — Hardhat integration",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "vrf:export": "go run ./cmd/vrfjson -out test/fixtures/vrf_sample.json"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "dotenv": "^16.4.0"
+  }
+}

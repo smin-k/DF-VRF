@@ -23,6 +23,13 @@ var (
 	vrfDomainBeta  = []byte("FALCON-VRF-BETA-v1")
 )
 
+// MakeVRFTranscript returns the 64-byte transcript that VRFProve signs.
+// Exported so that external tooling (e.g., cmd/vrfjson) can reproduce it
+// without duplicating the domain-separation logic.
+func MakeVRFTranscript(pk *PublicKey, msg []byte) [sha512.Size]byte {
+	return makeVRFProveTranscript(pk, msg)
+}
+
 func makeVRFProveTranscript(pk *PublicKey, msg []byte) (out [sha512.Size]byte) {
 	h := sha512.New()
 	_, _ = h.Write(vrfDomainProve)
