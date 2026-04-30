@@ -1,19 +1,16 @@
-// cmd/vrfjson: generates a Falcon-1024 VRF proof and exports all data needed
+// cmd/vrfjson: generates a Falcon-512 VRF proof and exports all data needed
 // for on-chain verification as a JSON fixture file.
 //
 // Output fields:
 //   seed           - key-generation seed (hex)
 //   msg_hex        - signed message (hex)
 //   transcript_hex - 64-byte VRF transcript SHA-512("FALCON-VRF-PROVE-v1"||pk||msg)
-//   fixed_salt_hex - 40-byte deterministic salt for salt_version=0, logn=10
+//   fixed_salt_hex - 40-byte deterministic salt for salt_version=0, logn=9 (Falcon-512)
 //   pk_hex         - raw public key bytes
 //   proof_hex      - compressed signature bytes (VRF proof)
 //   beta_hex       - 64-byte VRF output
-//   s2_words       - s2 polynomial packed as uint256 words (64 words, 16×16-bit each)
+//   s2_words       - s2 polynomial packed as uint256 words (32 words, 16×16-bit each)
 //   h_words        - public-key polynomial h packed as uint256 words (same layout)
-//
-// NOTE: The existing ZKNOX Solidity contracts target Falcon-512 (32 words).
-// Falcon-1024 on-chain verification requires ZKNOX_vrf_falcon1024.sol (TODO).
 
 package main
 
@@ -34,31 +31,31 @@ const falconQ = 12289
 
 // VRFFixture is the JSON structure written to disk.
 type VRFFixture struct {
-	Seed        string   `json:"seed"`
-	MsgHex      string   `json:"msg_hex"`
-	Transcript  string   `json:"transcript_hex"`
-	FixedSalt   string   `json:"fixed_salt_hex"`
-	PkHex       string   `json:"pk_hex"`
-	ProofHex    string   `json:"proof_hex"`
-	BetaHex     string   `json:"beta_hex"`
+	Seed       string   `json:"seed"`
+	MsgHex     string   `json:"msg_hex"`
+	Transcript string   `json:"transcript_hex"`
+	FixedSalt  string   `json:"fixed_salt_hex"`
+	PkHex      string   `json:"pk_hex"`
+	ProofHex   string   `json:"proof_hex"`
+	BetaHex    string   `json:"beta_hex"`
 	// Polynomial coefficients packed into uint256 words.
 	// Each uint256 holds 16 coefficients in 16-bit slots (little-endian within word).
-	// Falcon-1024: 1024 coefficients → 64 words.
+	// Falcon-512: 512 coefficients → 32 words.
 	// Negative s2 values are reduced mod q before packing so each slot is uint16.
 	S2Words []string `json:"s2_words"`
 	HWords  []string `json:"h_words"`
 }
 
-// fixedSalt returns the 40-byte deterministic nonce for salt_version=0, logn=10.
+// fixedSalt returns the 40-byte deterministic nonce for salt_version=0, logn=9 (Falcon-512).
 //
 //	dst[0] = salt_version (0)
-//	dst[1] = FALCON_DET1024_LOGN (10)
+//	dst[1] = FALCON_DET512_LOGN (9)
 //	dst[2:12] = "FALCON_DET"
 //	dst[12:40] = 0x00 (zero-padded)
 func fixedSalt() []byte {
 	salt := make([]byte, 40)
 	salt[0] = 0x00
-	salt[1] = 0x0a // logn = 10
+	salt[1] = 0x09 // logn = 9 (Falcon-512)
 	copy(salt[2:], []byte("FALCON_DET"))
 	return salt
 }
@@ -93,7 +90,7 @@ func packInt16Coeffs(coeffs []int16) []string {
 func packUint16Coeffs(coeffs []uint16) []string {
 	s := make([]int16, len(coeffs))
 	for i, v := range coeffs {
-		s[i] = int16(v) // uint16 values are in [0, q), no negative wrap needed
+		s[i] = int16(v)
 	}
 	return packInt16Coeffs(s)
 }
@@ -115,7 +112,6 @@ func main() {
 		log.Fatalf("VRFProve: %v", err)
 	}
 
-	// Sanity-check: verify round-trips.
 	betaVerify, err := pk.VRFVerify(proof, msg)
 	if err != nil {
 		log.Fatalf("VRFVerify: %v", err)
@@ -124,7 +120,6 @@ func main() {
 		log.Fatal("beta mismatch between VRFProve and VRFVerify")
 	}
 
-	// Extract s2 polynomial coefficients from the CT signature.
 	sigCT, err := proof.ConvertToCT()
 	if err != nil {
 		log.Fatalf("ConvertToCT: %v", err)
@@ -134,16 +129,13 @@ func main() {
 		log.Fatalf("S2Coefficients: %v", err)
 	}
 
-	// Extract public-key polynomial h coefficients.
 	h, err := pk.Coefficients()
 	if err != nil {
 		log.Fatalf("Coefficients: %v", err)
 	}
 
-	// Compute the VRF transcript (same hash that VRFProve signed).
 	transcript := falcon.MakeVRFTranscript(&pk, msg)
 
-	// Ensure output directory exists.
 	if dir := filepath.Dir(*out); dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			log.Fatalf("mkdir %s: %v", dir, err)
@@ -172,7 +164,7 @@ func main() {
 	}
 
 	fmt.Printf("VRF fixture written to %s\n", *out)
-	fmt.Printf("  n              : %d (Falcon-1024)\n", falcon.N)
+	fmt.Printf("  n              : %d (Falcon-512)\n", falcon.N)
 	fmt.Printf("  s2_words count : %d\n", len(fixture.S2Words))
 	fmt.Printf("  h_words count  : %d\n", len(fixture.HWords))
 	fmt.Printf("  proof bytes    : %d\n", len(proof))

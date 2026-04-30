@@ -155,12 +155,12 @@ describe("ZKNOX_vrf_falcon", function () {
       required.forEach((k) => expect(fixture).to.have.property(k));
     });
 
-    it("s2_words is 64 elements (Falcon-1024 packing: 1024 coeffs / 16 per word)", function () {
-      expect(fixture.s2_words).to.have.lengthOf(64);
+    it("s2_words is 32 elements (Falcon-512 packing: 512 coeffs / 16 per word)", function () {
+      expect(fixture.s2_words).to.have.lengthOf(32);
     });
 
-    it("h_words is 64 elements (public key polynomial, same shape)", function () {
-      expect(fixture.h_words).to.have.lengthOf(64);
+    it("h_words is 32 elements (public key polynomial, same shape)", function () {
+      expect(fixture.h_words).to.have.lengthOf(32);
     });
 
     it("fixed_salt_hex encodes exactly 40 bytes", function () {
@@ -171,16 +171,17 @@ describe("ZKNOX_vrf_falcon", function () {
       expect(fixture.beta_hex.replace(/^0x/, "")).to.have.lengthOf(128);
     });
 
-    it("verify reverts with 'invalid s2 length' (Falcon-1024 vs 512 contract)", async function () {
-      // Expected: existing contracts reject n=1024 data until ZKNOX_vrf_falcon1024.sol is deployed.
+    it("verify() call succeeds with Go-generated Falcon-512 s2 data (returns false — ntth is dummy zeros)", async function () {
+      // Go and Solidity are now both Falcon-512.
+      // s2 has 32 words (512 coeffs / 16 per word) — passes length check.
+      // ntth is dummy zeros so verification returns false, but no revert.
       const transcript = Buffer.from(fixture.transcript_hex, "hex");
       const salt = Buffer.from(fixture.fixed_salt_hex, "hex");
       const s2 = fixture.s2_words.map((w) => BigInt(w));
       const ntth = Array(32).fill(0n);
 
-      await expect(
-        vrfFalcon.verify(transcript, salt, s2, ntth)
-      ).to.be.revertedWith("invalid s2 length");
+      const result = await vrfFalcon.verify(transcript, salt, s2, ntth);
+      expect(result).to.be.false;
     });
   });
 });

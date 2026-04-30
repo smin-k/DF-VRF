@@ -54,18 +54,18 @@ var (
 
 const (
 	// PublicKeySize is the size of a Falcon public key.
-	PublicKeySize = C.FALCON_DET1024_PUBKEY_SIZE
+	PublicKeySize = C.FALCON_DET512_PUBKEY_SIZE
 	// PrivateKeySize is the size of a Falcon private key.
-	PrivateKeySize = C.FALCON_DET1024_PRIVKEY_SIZE
+	PrivateKeySize = C.FALCON_DET512_PRIVKEY_SIZE
 	// CurrentSaltVersion is the salt version number used to compute signatures.
 	// The salt version is incremented when the signing procedure changes (rarely).
-	CurrentSaltVersion = C.FALCON_DET1024_CURRENT_SALT_VERSION
+	CurrentSaltVersion = C.FALCON_DET512_CURRENT_SALT_VERSION
 	// CTSignatureSize is the size in bytes of a Falcon signature in CT format
-	CTSignatureSize = C.FALCON_DET1024_SIG_CT_SIZE
+	CTSignatureSize = C.FALCON_DET512_SIG_CT_SIZE
 	// SignatureMaxSize is the max possible size in bytes of a Falcon signature in compressed format.
-	SignatureMaxSize = C.FALCON_DET1024_SIG_COMPRESSED_MAXSIZE
-	// N=1024 is the degree of Falcon det1024 polynomials.
-	N = 1 << C.FALCON_DET1024_LOGN
+	SignatureMaxSize = C.FALCON_DET512_SIG_COMPRESSED_MAXSIZE
+	// N=512 is the degree of Falcon det512 polynomials.
+	N = 1 << C.FALCON_DET512_LOGN
 )
 
 // PublicKey represents a falcon public key
@@ -104,7 +104,7 @@ func GenerateKeyWithMode(seed []byte, mode Mode) (PublicKey, PrivateKey, error) 
 	publicKey := PublicKey{}
 	privateKey := PrivateKey{}
 
-	r := C.falcon_det1024_keygen(&rng, unsafe.Pointer(&privateKey[0]), unsafe.Pointer(&publicKey[0]))
+	r := C.falcon_det512_keygen(&rng, unsafe.Pointer(&privateKey[0]), unsafe.Pointer(&publicKey[0]))
 	if r != 0 {
 		return PublicKey{}, PrivateKey{}, fmt.Errorf("error code is %d: %w", int(r), ErrKeygenFail)
 	}
@@ -126,15 +126,15 @@ func (sk *PrivateKey) SignCompressedWithMode(msg []byte, mode Mode) (CompressedS
 	var r C.int
 	if mode == ModeKeccak {
 		if len(msg) == 0 {
-			r = C.falcon_det1024_sign_compressed_keccak(unsafe.Pointer(&sig[0]), &sigLen, unsafe.Pointer(&(*sk)), C.NULL, 0)
+			r = C.falcon_det512_sign_compressed_keccak(unsafe.Pointer(&sig[0]), &sigLen, unsafe.Pointer(&(*sk)), C.NULL, 0)
 		} else {
-			r = C.falcon_det1024_sign_compressed_keccak(unsafe.Pointer(&sig[0]), &sigLen, unsafe.Pointer(&(*sk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
+			r = C.falcon_det512_sign_compressed_keccak(unsafe.Pointer(&sig[0]), &sigLen, unsafe.Pointer(&(*sk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
 		}
 	} else {
 		if len(msg) == 0 {
-			r = C.falcon_det1024_sign_compressed(unsafe.Pointer(&sig[0]), &sigLen, unsafe.Pointer(&(*sk)), C.NULL, 0)
+			r = C.falcon_det512_sign_compressed(unsafe.Pointer(&sig[0]), &sigLen, unsafe.Pointer(&(*sk)), C.NULL, 0)
 		} else {
-			r = C.falcon_det1024_sign_compressed(unsafe.Pointer(&sig[0]), &sigLen, unsafe.Pointer(&(*sk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
+			r = C.falcon_det512_sign_compressed(unsafe.Pointer(&sig[0]), &sigLen, unsafe.Pointer(&(*sk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
 		}
 	}
 	if r != 0 {
@@ -154,7 +154,7 @@ func (sk *PrivateKey) SignCompressedKeccak(msg []byte) (CompressedSignature, err
 func (sig *CompressedSignature) ConvertToCT() (CTSignature, error) {
 	sigCT := CTSignature{}
 
-	r := C.falcon_det1024_convert_compressed_to_ct(unsafe.Pointer(&sigCT[0]), unsafe.Pointer(&(*sig)[0]), C.size_t(len(*sig)))
+	r := C.falcon_det512_convert_compressed_to_ct(unsafe.Pointer(&sigCT[0]), unsafe.Pointer(&(*sig)[0]), C.size_t(len(*sig)))
 	if r != 0 {
 		return CTSignature{}, fmt.Errorf("error code %d: %w", int(r), ErrConvertFail)
 	}
@@ -176,15 +176,15 @@ func (pk *PublicKey) VerifyWithMode(signature CompressedSignature, msg []byte, m
 	var r C.int
 	if mode == ModeKeccak {
 		if len(msg) == 0 {
-			r = C.falcon_det1024_verify_compressed_keccak(unsafe.Pointer(&signature[0]), C.size_t(len(signature)), unsafe.Pointer(&(*pk)), C.NULL, 0)
+			r = C.falcon_det512_verify_compressed_keccak(unsafe.Pointer(&signature[0]), C.size_t(len(signature)), unsafe.Pointer(&(*pk)), C.NULL, 0)
 		} else {
-			r = C.falcon_det1024_verify_compressed_keccak(unsafe.Pointer(&signature[0]), C.size_t(len(signature)), unsafe.Pointer(&(*pk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
+			r = C.falcon_det512_verify_compressed_keccak(unsafe.Pointer(&signature[0]), C.size_t(len(signature)), unsafe.Pointer(&(*pk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
 		}
 	} else {
 		if len(msg) == 0 {
-			r = C.falcon_det1024_verify_compressed(unsafe.Pointer(&signature[0]), C.size_t(len(signature)), unsafe.Pointer(&(*pk)), C.NULL, 0)
+			r = C.falcon_det512_verify_compressed(unsafe.Pointer(&signature[0]), C.size_t(len(signature)), unsafe.Pointer(&(*pk)), C.NULL, 0)
 		} else {
-			r = C.falcon_det1024_verify_compressed(unsafe.Pointer(&signature[0]), C.size_t(len(signature)), unsafe.Pointer(&(*pk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
+			r = C.falcon_det512_verify_compressed(unsafe.Pointer(&signature[0]), C.size_t(len(signature)), unsafe.Pointer(&(*pk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
 		}
 	}
 	if r != 0 {
@@ -206,9 +206,9 @@ func (pk *PublicKey) VerifyKeccak(signature CompressedSignature, msg []byte) err
 func (pk *PublicKey) VerifyCTSignature(signature CTSignature, msg []byte) error {
 	var r C.int
 	if len(msg) == 0 {
-		r = C.falcon_det1024_verify_ct(unsafe.Pointer(&signature[0]), unsafe.Pointer(&(*pk)), C.NULL, 0)
+		r = C.falcon_det512_verify_ct(unsafe.Pointer(&signature[0]), unsafe.Pointer(&(*pk)), C.NULL, 0)
 	} else {
-		r = C.falcon_det1024_verify_ct(unsafe.Pointer(&signature[0]), unsafe.Pointer(&(*pk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
+		r = C.falcon_det512_verify_ct(unsafe.Pointer(&signature[0]), unsafe.Pointer(&(*pk)), unsafe.Pointer(&msg[0]), C.size_t(len(msg)))
 	}
 	if r != 0 {
 		return fmt.Errorf("error code %d: %w", int(r), ErrVerifyFail)
@@ -242,7 +242,7 @@ func (sig *CTSignature) SaltVersion() byte {
 //
 // Returns an error if pubkey is invalid.
 func (pub *PublicKey) Coefficients() (h [N]uint16, err error) {
-	r := C.falcon_det1024_pubkey_coeffs((*C.uint16_t)(&h[0]), unsafe.Pointer(&(*pub)))
+	r := C.falcon_det512_pubkey_coeffs((*C.uint16_t)(&h[0]), unsafe.Pointer(&(*pub)))
 	if r != 0 {
 		err = fmt.Errorf("error code %d: %w", int(r), ErrPubkeyCoefficientsFail)
 	}
@@ -254,7 +254,7 @@ func (pub *PublicKey) Coefficients() (h [N]uint16, err error) {
 // Falcon specification for details. Returns an error if sig cannot be properly
 // unpacked.
 func (sig *CTSignature) S2Coefficients() (s2 [N]int16, err error) {
-	r := C.falcon_det1024_s2_coeffs((*C.int16_t)(&s2[0]), unsafe.Pointer(&(*sig)))
+	r := C.falcon_det512_s2_coeffs((*C.int16_t)(&s2[0]), unsafe.Pointer(&(*sig)))
 	if r != 0 {
 		err = fmt.Errorf("error code %d: %w", int(r), ErrS2CoefficientsFail)
 	}
@@ -268,7 +268,7 @@ func (sig *CTSignature) S2Coefficients() (s2 [N]int16, err error) {
 // signature (for the public key corresponding to h, the hash digest
 // corresponding to c, and the signature corresponding to s_2).
 func S1Coefficients(h [N]uint16, c [N]uint16, s2 [N]int16) (s1 [N]int16, err error) {
-	r := C.falcon_det1024_s1_coeffs((*C.int16_t)(&s1[0]), (*C.uint16_t)(&h[0]), (*C.uint16_t)(&c[0]), (*C.int16_t)(&s2[0]))
+	r := C.falcon_det512_s1_coeffs((*C.int16_t)(&s1[0]), (*C.uint16_t)(&h[0]), (*C.uint16_t)(&c[0]), (*C.int16_t)(&s2[0]))
 	if r != 0 {
 		err = fmt.Errorf("error code %d: %w", int(r), ErrS1CoefficientsFail)
 	}
@@ -288,16 +288,16 @@ func HashToPointCoefficients(msg []byte, saltVersion byte) (c [N]uint16) {
 func HashToPointCoefficientsWithMode(msg []byte, saltVersion byte, mode Mode) (c [N]uint16) {
 	if mode == ModeKeccak {
 		if len(msg) == 0 {
-			C.falcon_det1024_hash_to_point_coeffs_keccak((*C.uint16_t)(&c[0]), C.NULL, 0, C.uint8_t(saltVersion))
+			C.falcon_det512_hash_to_point_coeffs_keccak((*C.uint16_t)(&c[0]), C.NULL, 0, C.uint8_t(saltVersion))
 		} else {
-			C.falcon_det1024_hash_to_point_coeffs_keccak((*C.uint16_t)(&c[0]), unsafe.Pointer(&msg[0]), C.size_t(len(msg)), C.uint8_t(saltVersion))
+			C.falcon_det512_hash_to_point_coeffs_keccak((*C.uint16_t)(&c[0]), unsafe.Pointer(&msg[0]), C.size_t(len(msg)), C.uint8_t(saltVersion))
 		}
 		return
 	}
 	if len(msg) == 0 {
-		C.falcon_det1024_hash_to_point_coeffs((*C.uint16_t)(&c[0]), C.NULL, 0, C.uint8_t(saltVersion))
+		C.falcon_det512_hash_to_point_coeffs((*C.uint16_t)(&c[0]), C.NULL, 0, C.uint8_t(saltVersion))
 	} else {
-		C.falcon_det1024_hash_to_point_coeffs((*C.uint16_t)(&c[0]), unsafe.Pointer(&msg[0]), C.size_t(len(msg)), C.uint8_t(saltVersion))
+		C.falcon_det512_hash_to_point_coeffs((*C.uint16_t)(&c[0]), unsafe.Pointer(&msg[0]), C.size_t(len(msg)), C.uint8_t(saltVersion))
 	}
 	return
 }
