@@ -1,31 +1,36 @@
 # DF-VRF
 
-Deterministic Falcon-based VRF experimental repository.
+Deterministic Falcon-512-based VRF experimental repository.
 
 ## Directory Layout
 
-- `crypto/`: C implementation + Go bindings for deterministic Falcon and VRF APIs.
-- `contracts/`: Solidity contracts and Solidity tests.
-- `cmd/`: CLI entrypoints.
-  - `cmd/vrfexp`: VRF sample generator.
+- `crypto/`: C implementation + Go bindings for deterministic Falcon-512 and VRF APIs.
+- `contracts/`: Solidity contracts and Foundry test files.
+- `contracts/test/`: Foundry-only test suite (`.t.sol`). Not compiled by Hardhat.
+- `cmd/`: CLI entry points.
+  - `cmd/vrfexp`: VRF sample generator (CSV output).
+  - `cmd/vrfjson`: VRF fixture exporter (JSON, for Hardhat integration tests).
+- `scripts/`: Hardhat deployment scripts.
+- `test/`: Hardhat/Mocha integration tests.
 
 ## Go Module
 
 - Module path: `DF_VRF`
-- Main package import path for crypto engine: `DF_VRF/crypto`
+- Crypto engine import path: `DF_VRF/crypto`
 
 ## Quick Start (Go)
 
-Build CLI:
+Build CLIs:
 
 ```bash
 go build ./cmd/vrfexp
+go build ./cmd/vrfjson
 ```
 
 Run core tests:
 
 ```bash
-go test ./crypto
+go test ./crypto/...
 ```
 
 Run selected Keccak mode tests:
@@ -43,7 +48,7 @@ npm install
 npm run compile
 ```
 
-Run Hardhat tests (also exercises the Go VRF bridge):
+Run Hardhat integration tests (also exercises the Go VRF bridge):
 
 ```bash
 npm test
@@ -63,24 +68,32 @@ npx hardhat node          # terminal 1
 npm run deploy:local      # terminal 2
 ```
 
-### On-chain verification architecture
+## On-chain verification architecture
 
 | Layer | Status |
 |-------|--------|
-| Go VRF prove/verify (Falcon-1024, n=1024) | ✅ complete |
+| Go VRF prove/verify (Falcon-512, n=512) | ✅ complete |
 | Hardhat compilation + deployment scripts | ✅ complete |
-| `ZKNOX_vrf_falcon` Solidity verifier (Falcon-512, n=512) | ✅ compiles & deploys |
-| **Falcon-1024 Solidity verifier** (`ZKNOX_vrf_falcon1024.sol`) | ⬜ TODO |
+| `ZKNOX_vrf_falcon` Solidity verifier (Falcon-512, n=512) | ✅ compiles, deploys, and matches Go output |
+| `ZKNOX_vrf_epervier` Solidity verifier | ✅ compiles and deploys |
 
-The existing ZKNOX Solidity library targets Falcon-512 (polynomial degree n=512,
-32 uint256 words per polynomial).  The Go layer uses Falcon-1024 (n=1024, 64 words).
-Full end-to-end on-chain verification of Go-generated proofs requires:
-- `contracts/ZKNOX_falcon_utils1024.sol` — constants for n=1024
-- `contracts/ZKNOX_NTT_falcon1024.sol` — 2048-point NTT roots mod q=12289
-- `contracts/ZKNOX_vrf_falcon1024.sol` — updated length checks
+Go and Solidity both use Falcon-512 (polynomial degree n=512, 32 uint256 words per
+polynomial). The Go layer generates proofs; the Solidity verifier checks the shape and
+signature components produced by the Go layer.
 
-Until then, `test/VRFFalcon.test.js` documents the gap with an explicit revert
-test and validates the entire data pipeline from Go to Solidity call.
+## Cryptographic parameters
+
+| Parameter | Value |
+|-----------|-------|
+| Algorithm | Falcon-512 (deterministic mode) |
+| Degree | n = 512 |
+| Modulus | q = 12289 |
+| logn | 9 |
+| Fixed salt | 40 bytes: `[0x00, 0x09, "FALCON_DET", 0x00×28]` |
+| VRF transcript | SHA-512(`"FALCON-VRF-PROVE-v1"` ‖ pk ‖ msg) |
+| VRF output β | SHA-512(`"FALCON-VRF-BETA-v1"` ‖ pk ‖ msg ‖ proof) |
+| Polynomial packing | 16 coefficients per uint256 word (16-bit slots) |
+| s2 / h word count | 32 words (512 coefficients / 16 per word) |
 
 ## Notes
 
@@ -88,3 +101,4 @@ test and validates the entire data pipeline from Go to Solidity call.
 - Solidity sources are kept under `contracts/` to separate on-chain code from Go/C code.
 - Hardhat excludes Foundry-only files (those importing `forge-std`, `sstore2`,
   `InterfaceVerifier`) automatically via `hardhat.config.js`.
+- Foundry tests live in `contracts/test/` and are compiled separately with `forge test`.
