@@ -10,7 +10,7 @@ import (
 	"log"
 	"os"
 
-	"DF_VRF/crypto"
+	falcon "DF_VRF/crypto"
 )
 
 const two64 = 18446744073709551616.0
