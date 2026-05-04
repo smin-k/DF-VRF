@@ -42,8 +42,9 @@ type VRFFixture struct {
 	// Each uint256 holds 16 coefficients in 16-bit slots (little-endian within word).
 	// Falcon-512: 512 coefficients → 32 words.
 	// Negative s2 values are reduced mod q before packing so each slot is uint16.
-	S2Words []string `json:"s2_words"`
-	HWords  []string `json:"h_words"`
+	S2Words   []string `json:"s2_words"`
+	HWords    []string `json:"h_words"`
+	NttHWords []string `json:"ntt_h_words"` // NTT(h) mod q — ntth input for Solidity falcon_core
 }
 
 // fixedSalt returns the 40-byte deterministic nonce for salt_version=0, logn=9 (Falcon-512).
@@ -134,6 +135,11 @@ func main() {
 		log.Fatalf("Coefficients: %v", err)
 	}
 
+	ntth, err := pk.NTTCoefficients()
+	if err != nil {
+		log.Fatalf("NTTCoefficients: %v", err)
+	}
+
 	transcript := falcon.MakeVRFTranscript(&pk, msg)
 
 	if dir := filepath.Dir(*out); dir != "." {
@@ -152,6 +158,7 @@ func main() {
 		BetaHex:    hex.EncodeToString(beta[:]),
 		S2Words:    packInt16Coeffs(s2[:]),
 		HWords:     packUint16Coeffs(h[:]),
+		NttHWords:  packUint16Coeffs(ntth[:]),
 	}
 
 	data, err := json.MarshalIndent(fixture, "", "  ")
@@ -167,6 +174,7 @@ func main() {
 	fmt.Printf("  n              : %d (Falcon-512)\n", falcon.N)
 	fmt.Printf("  s2_words count : %d\n", len(fixture.S2Words))
 	fmt.Printf("  h_words count  : %d\n", len(fixture.HWords))
+	fmt.Printf("  ntt_h_words    : %d\n", len(fixture.NttHWords))
 	fmt.Printf("  proof bytes    : %d\n", len(proof))
 	fmt.Printf("  beta           : %s\n", fixture.BetaHex[:16]+"...")
 }

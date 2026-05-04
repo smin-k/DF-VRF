@@ -151,6 +151,7 @@ describe("ZKNOX_vrf_falcon", function () {
         "beta_hex",
         "s2_words",
         "h_words",
+        "ntt_h_words",
       ];
       required.forEach((k) => expect(fixture).to.have.property(k));
     });
@@ -163,6 +164,10 @@ describe("ZKNOX_vrf_falcon", function () {
       expect(fixture.h_words).to.have.lengthOf(32);
     });
 
+    it("ntt_h_words is 32 elements (NTT(h) for Solidity verifier)", function () {
+      expect(fixture.ntt_h_words).to.have.lengthOf(32);
+    });
+
     it("fixed_salt_hex encodes exactly 40 bytes", function () {
       expect(fixture.fixed_salt_hex.replace(/^0x/, "")).to.have.lengthOf(80);
     });
@@ -171,17 +176,14 @@ describe("ZKNOX_vrf_falcon", function () {
       expect(fixture.beta_hex.replace(/^0x/, "")).to.have.lengthOf(128);
     });
 
-    it("verify() call succeeds with Go-generated Falcon-512 s2 data (returns false — ntth is dummy zeros)", async function () {
-      // Go and Solidity are now both Falcon-512.
-      // s2 has 32 words (512 coeffs / 16 per word) — passes length check.
-      // ntth is dummy zeros so verification returns false, but no revert.
+    it("verify() returns true with real Go-generated Falcon-512 proof and NTT(h)", async function () {
       const transcript = Buffer.from(fixture.transcript_hex, "hex");
       const salt = Buffer.from(fixture.fixed_salt_hex, "hex");
       const s2 = fixture.s2_words.map((w) => BigInt(w));
-      const ntth = Array(32).fill(0n);
+      const ntth = fixture.ntt_h_words.map((w) => BigInt(w));
 
       const result = await vrfFalcon.verify(transcript, salt, s2, ntth);
-      expect(result).to.be.false;
+      expect(result).to.be.true;
     });
   });
 });

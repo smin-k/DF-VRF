@@ -23,6 +23,8 @@ package falcon
 //#cgo CFLAGS:  -Wall -Wextra -Wpedantic -Wredundant-decls -Wshadow -Wvla -Wpointer-arith -Wno-unused-parameter -Wno-overlength-strings  -O3 -fomit-frame-pointer -Wno-strict-prototypes
 // #include "falcon.h"
 // #include "deterministic.h"
+// #include <stdint.h>
+// void falcon_ntt_forward(uint16_t *h, unsigned logn);
 import "C"
 
 import (
@@ -305,4 +307,16 @@ func HashToPointCoefficientsWithMode(msg []byte, saltVersion byte, mode Mode) (c
 // HashToPointCoefficientsKeccak hashes the message using the Keccak-backed mode.
 func HashToPointCoefficientsKeccak(msg []byte, saltVersion byte) (c [N]uint16) {
 	return HashToPointCoefficientsWithMode(msg, saltVersion, ModeKeccak)
+}
+
+// NTTCoefficients returns the public key polynomial h in forward NTT domain
+// (mod q=12289, no Montgomery scaling) as [N]uint16.
+// This is the ntth value expected by the Solidity falcon_core verifier.
+func (pub *PublicKey) NTTCoefficients() ([N]uint16, error) {
+	h, err := pub.Coefficients()
+	if err != nil {
+		return [N]uint16{}, err
+	}
+	C.falcon_ntt_forward((*C.uint16_t)(unsafe.Pointer(&h[0])), C.uint(C.FALCON_DET512_LOGN))
+	return h, nil
 }
