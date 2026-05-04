@@ -25,6 +25,8 @@ package falcon
 // #include "deterministic.h"
 // #include <stdint.h>
 // void falcon_ntt_forward(uint16_t *h, unsigned logn);
+// int  falcon_keccak_s2_coeffs(int16_t *s2, const void *sig, size_t sig_len);
+// int  falcon_keccak_nonce(uint8_t *nonce, const void *sig, size_t sig_len);
 import "C"
 
 import (
@@ -307,6 +309,35 @@ func HashToPointCoefficientsWithMode(msg []byte, saltVersion byte, mode Mode) (c
 // HashToPointCoefficientsKeccak hashes the message using the Keccak-backed mode.
 func HashToPointCoefficientsKeccak(msg []byte, saltVersion byte) (c [N]uint16) {
 	return HashToPointCoefficientsWithMode(msg, saltVersion, ModeKeccak)
+}
+
+// KeccakS2Coefficients decodes s2 from a Keccak-mode compressed Falcon signature.
+// Keccak sigs have format [header:1][nonce:40][compressed_s2:var]; this skips
+// the first 41 bytes and runs comp_decode on the remainder.
+func KeccakS2Coefficients(sig CompressedSignature) ([N]int16, error) {
+	if len(sig) == 0 {
+		return [N]int16{}, fmt.Errorf("empty signature: %w", ErrS2CoefficientsFail)
+	}
+	var s2 [N]int16
+	r := C.falcon_keccak_s2_coeffs((*C.int16_t)(unsafe.Pointer(&s2[0])), unsafe.Pointer(&sig[0]), C.size_t(len(sig)))
+	if r != 0 {
+		return [N]int16{}, fmt.Errorf("error code %d: %w", int(r), ErrS2CoefficientsFail)
+	}
+	return s2, nil
+}
+
+// KeccakNonce extracts the 40-byte nonce from a Keccak-mode compressed signature.
+// This nonce is the salt that Solidity's hashToPointEVM must receive.
+func KeccakNonce(sig CompressedSignature) ([40]byte, error) {
+	var nonce [40]byte
+	if len(sig) == 0 {
+		return nonce, fmt.Errorf("empty signature: %w", ErrVerifyFail)
+	}
+	r := C.falcon_keccak_nonce((*C.uint8_t)(unsafe.Pointer(&nonce[0])), unsafe.Pointer(&sig[0]), C.size_t(len(sig)))
+	if r != 0 {
+		return nonce, fmt.Errorf("error code %d: %w", int(r), ErrVerifyFail)
+	}
+	return nonce, nil
 }
 
 // NTTCoefficients returns the public key polynomial h in forward NTT domain

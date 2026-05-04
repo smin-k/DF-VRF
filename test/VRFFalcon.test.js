@@ -228,6 +228,63 @@ describe("Gas benchmarks", function () {
   });
 });
 
+describe("ZKNOX_vrf_falcon_evm (Keccak256 hash-to-point)", function () {
+  let vrfFalconEvm;
+  let fixture;
+
+  before(async function () {
+    const Factory = await ethers.getContractFactory("ZKNOX_vrf_falcon_evm");
+    vrfFalconEvm = await Factory.deploy();
+    await vrfFalconEvm.waitForDeployment();
+    fixture = loadOrBuildFixture();
+    if (!fixture) this.skip();
+  });
+
+  it("deploys to a valid address", async function () {
+    expect(ethers.isAddress(await vrfFalconEvm.getAddress())).to.be.true;
+  });
+
+  it("fixture contains keccak fields", function () {
+    ["proof_keccak_hex", "nonce_keccak_hex", "beta_keccak_hex", "s2_keccak_words"].forEach(
+      (k) => expect(fixture).to.have.property(k)
+    );
+  });
+
+  it("nonce_keccak_hex encodes exactly 40 bytes", function () {
+    expect(fixture.nonce_keccak_hex).to.have.lengthOf(80);
+  });
+
+  it("s2_keccak_words is 32 elements", function () {
+    expect(fixture.s2_keccak_words).to.have.lengthOf(32);
+  });
+
+  it("verify() returns true with Keccak proof and hashToPointEVM", async function () {
+    const transcript = Buffer.from(fixture.transcript_hex, "hex");
+    const salt = Buffer.from(fixture.nonce_keccak_hex, "hex"); // keccak nonce, not fixed salt
+    const s2 = fixture.s2_keccak_words.map((w) => BigInt(w));
+    const ntth = fixture.ntt_h_words.map((w) => BigInt(w));
+
+    const result = await vrfFalconEvm.verify(transcript, salt, s2, ntth);
+    expect(result).to.be.true;
+  });
+
+  it("verify() gas — Keccak valid proof", async function () {
+    const transcript = Buffer.from(fixture.transcript_hex, "hex");
+    const salt = Buffer.from(fixture.nonce_keccak_hex, "hex");
+    const s2 = fixture.s2_keccak_words.map((w) => BigInt(w));
+    const ntth = fixture.ntt_h_words.map((w) => BigInt(w));
+
+    const gas = await vrfFalconEvm.verify.estimateGas(transcript, salt, s2, ntth);
+    console.log(`\n  [gas] verify() Keccak valid    : ${gas.toLocaleString()} gas`);
+  });
+
+  it("verify() gas — deployment", async function () {
+    const tx = vrfFalconEvm.deploymentTransaction();
+    const receipt = await tx.wait();
+    console.log(`\n  [gas] ZKNOX_vrf_falcon_evm deploy : ${receipt.gasUsed.toLocaleString()} gas`);
+  });
+});
+
 describe("ZKNOX_vrf_epervier", function () {
   let vrfEpervier;
 

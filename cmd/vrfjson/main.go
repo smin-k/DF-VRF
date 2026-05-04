@@ -1,16 +1,22 @@
 // cmd/vrfjson: generates a Falcon-512 VRF proof and exports all data needed
 // for on-chain verification as a JSON fixture file.
 //
-// Output fields:
+// SHAKE256 fields (NIST-compliant, ZKNOX_vrf_falcon.sol):
 //   seed           - key-generation seed (hex)
 //   msg_hex        - signed message (hex)
 //   transcript_hex - 64-byte VRF transcript SHA-512("FALCON-VRF-PROVE-v1"||pk||msg)
 //   fixed_salt_hex - 40-byte deterministic salt for salt_version=0, logn=9 (Falcon-512)
 //   pk_hex         - raw public key bytes
-//   proof_hex      - compressed signature bytes (VRF proof)
+//   proof_hex      - compressed signature bytes (VRF proof, SHAKE256 mode)
 //   beta_hex       - 64-byte VRF output
 //   s2_words       - s2 polynomial packed as uint256 words (32 words, 16×16-bit each)
 //   h_words        - public-key polynomial h packed as uint256 words (same layout)
+//   ntt_h_words    - NTT(h) mod q — ntth input for Solidity falcon_core
+//
+// Keccak256 fields (EVM-optimised, ZKNOX_vrf_falcon_evm.sol):
+//   proof_keccak_hex - compressed signature bytes (VRF proof, Keccak256 mode)
+//   beta_keccak_hex  - 64-byte VRF output for keccak proof
+//   s2_keccak_words  - s2 polynomial from keccak proof (same h/ntth as SHAKE256)
 
 package main
 
@@ -45,6 +51,12 @@ type VRFFixture struct {
 	S2Words   []string `json:"s2_words"`
 	HWords    []string `json:"h_words"`
 	NttHWords []string `json:"ntt_h_words"` // NTT(h) mod q — ntth input for Solidity falcon_core
+
+	// Keccak256 mode (EVM-optimised): same key, different proof
+	ProofKeccakHex  string   `json:"proof_keccak_hex"`
+	NonceKeccakHex  string   `json:"nonce_keccak_hex"` // 40-byte salt for hashToPointEVM
+	BetaKeccakHex   string   `json:"beta_keccak_hex"`
+	S2KeccakWords   []string `json:"s2_keccak_words"`
 }
 
 // fixedSalt returns the 40-byte deterministic nonce for salt_version=0, logn=9 (Falcon-512).
@@ -140,6 +152,27 @@ func main() {
 		log.Fatalf("NTTCoefficients: %v", err)
 	}
 
+	// Keccak mode: same key/transcript, different hash-to-point → different proof/s2/beta
+	proofKeccak, betaKeccak, err := sk.VRFProveWithMode(&pk, msg, falcon.ModeKeccak)
+	if err != nil {
+		log.Fatalf("VRFProveWithMode(Keccak): %v", err)
+	}
+	betaKeccakVerify, err := pk.VRFVerifyWithMode(proofKeccak, msg, falcon.ModeKeccak)
+	if err != nil {
+		log.Fatalf("VRFVerifyWithMode(Keccak): %v", err)
+	}
+	if betaKeccak != betaKeccakVerify {
+		log.Fatal("keccak beta mismatch")
+	}
+	nonceKeccak, err := falcon.KeccakNonce(proofKeccak)
+	if err != nil {
+		log.Fatalf("KeccakNonce: %v", err)
+	}
+	s2Keccak, err := falcon.KeccakS2Coefficients(proofKeccak)
+	if err != nil {
+		log.Fatalf("KeccakS2Coefficients: %v", err)
+	}
+
 	transcript := falcon.MakeVRFTranscript(&pk, msg)
 
 	if dir := filepath.Dir(*out); dir != "." {
@@ -159,6 +192,11 @@ func main() {
 		S2Words:    packInt16Coeffs(s2[:]),
 		HWords:     packUint16Coeffs(h[:]),
 		NttHWords:  packUint16Coeffs(ntth[:]),
+
+		ProofKeccakHex:  hex.EncodeToString(proofKeccak),
+		NonceKeccakHex:  hex.EncodeToString(nonceKeccak[:]),
+		BetaKeccakHex:   hex.EncodeToString(betaKeccak[:]),
+		S2KeccakWords:   packInt16Coeffs(s2Keccak[:]),
 	}
 
 	data, err := json.MarshalIndent(fixture, "", "  ")
@@ -176,5 +214,7 @@ func main() {
 	fmt.Printf("  h_words count  : %d\n", len(fixture.HWords))
 	fmt.Printf("  ntt_h_words    : %d\n", len(fixture.NttHWords))
 	fmt.Printf("  proof bytes    : %d\n", len(proof))
-	fmt.Printf("  beta           : %s\n", fixture.BetaHex[:16]+"...")
+	fmt.Printf("  beta (shake)   : %s\n", fixture.BetaHex[:16]+"...")
+	fmt.Printf("  proof_keccak   : %d bytes\n", len(proofKeccak))
+	fmt.Printf("  beta (keccak)  : %s\n", fixture.BetaKeccakHex[:16]+"...")
 }
