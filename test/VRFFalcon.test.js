@@ -114,21 +114,22 @@ describe("ZKNOX_vrf_falcon", function () {
     });
 
     it("reverts on wrong salt length (< 40 bytes)", async function () {
-      await expect(
-        vrfFalcon.verify(dummyTranscript, new Uint8Array(1), dummyS2, dummyNtth)
-      ).to.be.revertedWith("invalid salt length");
+      try {
+        await vrfFalcon.verify(dummyTranscript, new Uint8Array(1), dummyS2, dummyNtth);
+        expect.fail("expected revert");
+      } catch (e) {
+        expect(e.message).to.include("invalid salt length");
+      }
     });
 
     it("reverts on wrong s2 length (64 words instead of 32)", async function () {
       // This is the error you get when passing Falcon-1024 data to the 512 contract.
-      await expect(
-        vrfFalcon.verify(
-          dummyTranscript,
-          dummySalt,
-          Array(64).fill(0n), // n=1024 shape
-          dummyNtth
-        )
-      ).to.be.revertedWith("invalid s2 length");
+      try {
+        await vrfFalcon.verify(dummyTranscript, dummySalt, Array(64).fill(0n), dummyNtth);
+        expect.fail("expected revert");
+      } catch (e) {
+        expect(e.message).to.include("invalid s2 length");
+      }
     });
   });
 
@@ -188,6 +189,45 @@ describe("ZKNOX_vrf_falcon", function () {
   });
 });
 
+describe("Gas benchmarks", function () {
+  let vrfFalcon;
+  let fixture;
+
+  before(async function () {
+    const Factory = await ethers.getContractFactory("ZKNOX_vrf_falcon");
+    vrfFalcon = await Factory.deploy();
+    await vrfFalcon.waitForDeployment();
+    fixture = loadOrBuildFixture();
+    if (!fixture) this.skip();
+  });
+
+  it("deployment gas", async function () {
+    const tx = vrfFalcon.deploymentTransaction();
+    const receipt = await tx.wait();
+    console.log(`\n  [gas] ZKNOX_vrf_falcon deploy : ${receipt.gasUsed.toLocaleString()} gas`);
+  });
+
+  it("verify() gas — valid proof (returns true)", async function () {
+    const transcript = Buffer.from(fixture.transcript_hex, "hex");
+    const salt = Buffer.from(fixture.fixed_salt_hex, "hex");
+    const s2 = fixture.s2_words.map((w) => BigInt(w));
+    const ntth = fixture.ntt_h_words.map((w) => BigInt(w));
+
+    const gas = await vrfFalcon.verify.estimateGas(transcript, salt, s2, ntth);
+    console.log(`\n  [gas] verify() valid proof     : ${gas.toLocaleString()} gas`);
+  });
+
+  it("verify() gas — invalid proof (returns false, no revert)", async function () {
+    const transcript = Buffer.from(fixture.transcript_hex, "hex");
+    const salt = Buffer.from(fixture.fixed_salt_hex, "hex");
+    const s2 = fixture.s2_words.map((w) => BigInt(w));
+    const ntth = Array(32).fill(0n); // wrong ntth → returns false
+
+    const gas = await vrfFalcon.verify.estimateGas(transcript, salt, s2, ntth);
+    console.log(`\n  [gas] verify() invalid proof   : ${gas.toLocaleString()} gas`);
+  });
+});
+
 describe("ZKNOX_vrf_epervier", function () {
   let vrfEpervier;
 
@@ -215,8 +255,11 @@ describe("ZKNOX_vrf_epervier", function () {
     const cs2 = Array(32).fill(0n);
     const hint = 0n;
 
-    await expect(
-      vrfEpervier.recover(dummyTranscript, badSalt, cs1, cs2, hint)
-    ).to.be.revertedWith("wrong salt length");
+    try {
+      await vrfEpervier.recover(dummyTranscript, badSalt, cs1, cs2, hint);
+      expect.fail("expected revert");
+    } catch (e) {
+      expect(e.message).to.include("wrong salt length");
+    }
   });
 });

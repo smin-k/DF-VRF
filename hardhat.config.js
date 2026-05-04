@@ -1,3 +1,4 @@
+require("@nomicfoundation/hardhat-chai-matchers"); // must load before gas reporter
 require("@nomicfoundation/hardhat-toolbox");
 const { subtask } = require("hardhat/config");
 const { TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS } = require("hardhat/builtin-tasks/task-names");
