@@ -2,9 +2,13 @@ name: Deterministic KAT
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - dfvrf-macos-detkat
+  pull_request:
+    paths:
+      - ".github/workflows/detkat.yml"
+      - "cmd/detkat/**"
+      - "crypto/**"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
   macos-detkat:
