@@ -14,6 +14,79 @@ Deterministic Falcon-512–based Verifiable Random Function (VRF) with practical
 - **Fast off-chain:** Prove 3.35 ms, Verify 0.023 ms (SHAKE256)
 - **Security properties tested:** Determinism, injectivity, pseudorandomness stats, no collisions
 
+## Cross-Platform Determinism Results
+
+DF-VRF includes deterministic known-answer tests (KATs) for Falcon signatures and VRF proofs.
+The KAT generator is in `cmd/detkat`, and the GitHub Actions workflow is in
+`.github/workflows/detkat.yml`.
+
+The experiment fixes four `(seed, message)` inputs and records:
+
+- public key
+- VRF transcript
+- deterministic Falcon signature in SHAKE mode
+- deterministic Falcon signature in Keccak mode
+- VRF proof and beta in SHAKE mode
+- VRF proof and beta in Keccak mode
+- a `vector_digest_hex` over the semantic fields above
+
+### Verified Environments
+
+| Environment | OS / runner | Architecture | CPU / runner detail | Result |
+|-------------|-------------|--------------|---------------------|--------|
+| Local Windows | Windows native | x86_64 | AMD Ryzen 5 5600X | same vector digests |
+| Docker Linux | `golang:1.25-bookworm` | x86_64 | same local host | same vector digests |
+| AWS Linux x86 | Amazon Linux 2023 | x86_64 | Intel Xeon Platinum 8175M | same vector digests; tests PASS |
+| AWS Linux ARM | Amazon Linux 2023 | arm64 | AWS Graviton2 / Neoverse-N1 | same vector digests; tests PASS |
+| GitHub macOS Intel | `macos-15-intel` | x86_64 | GitHub-hosted Intel macOS runner | same vector digests; tests PASS |
+| GitHub macOS ARM | `macos-15` | arm64 | Apple M1 virtual runner | same vector digests; tests PASS |
+
+Successful macOS workflow run:
+https://github.com/smin-k/DF-VRF/actions/runs/25904612323
+
+### Reference Vector Digests
+
+All verified platforms produced the same four semantic vector digests:
+
+```text
+75a9a486600b2195bf153d0f4da91edfbdcec6df8c87b9fa4fc371808d3bb1db
+f0cc248d79ba60586cb94f46b0e0346b01b707672f5dfc8c4646037fcbdf8053
+a022bbb94b4a85f9936add1157dc926cd09cec0862012d45884d407239913a73
+87ebb668cf651b80fdf5944584e172a2eb326e6a4f32799861d2c9f26ebe17b3
+```
+
+The macOS Intel and macOS ARM JSON artifacts are byte-for-byte identical:
+
+```text
+SHA256(detkat_macos-intel.json) = 0519704fc00f209a528115c2677b651904ffbc01861f832736bf32a932817657
+SHA256(detkat_macos-arm64.json) = 0519704fc00f209a528115c2677b651904ffbc01861f832736bf32a932817657
+```
+
+The Windows and Docker Linux reference files were generated through PowerShell
+redirection, so the paper-facing comparison uses the semantic vector digests
+rather than raw file bytes.
+
+### Result Artifacts
+
+| File | Description |
+|------|-------------|
+| `experiments/detkat_windows_current.json` | Windows native KAT output |
+| `experiments/detkat_linux_container_current.json` | Docker Linux x86_64 KAT output |
+| `experiments/detkat_macos-intel.json` | GitHub Actions macOS Intel KAT artifact |
+| `experiments/detkat_macos-arm64.json` | GitHub Actions macOS ARM64 KAT artifact |
+| `experiments/aws_x86_console_r3.txt` | AWS Linux x86_64 console log with KAT and PASS output |
+| `experiments/aws_arm64_console_r3.txt` | AWS Linux ARM64 console log with KAT and PASS output |
+| `experiments/aws-detkat-userdata.sh` | AWS Linux user-data script used for EC2 experiments |
+| `experiments/aws-detkat-userdata-windows.ps1` | Windows EC2 user-data draft; retained for reproducibility notes |
+
+Reproduce locally:
+
+```bash
+go run ./cmd/detkat > detkat.json
+grep '"vector_digest_hex"' detkat.json
+go test ./crypto -run 'TestFalconVRFDeterministic|TestFalconVRFKeccakMode|TestVRFUniqueness_Determinism|TestVRFUniqueness_Determinism_Keccak' -v
+```
+
 ## Directory Layout
 
 - `crypto/`: C implementation (Falcon-512 det, Keccak support) + Go bindings for VRF API
@@ -26,6 +99,9 @@ Deterministic Falcon-512–based Verifiable Random Function (VRF) with practical
   - `ZKNOX_vrf_falcon_evm.sol` — Keccak256 mode verifier (gas-optimized)
   - `ZKNOX_vrf_epervier.sol` — Epervier-based variants
 - `cmd/vrfjson/` — Go CLI exporting test fixtures (for Hardhat)
+- `cmd/detkat/` — deterministic KAT generator for cross-platform reproducibility
+- `.github/workflows/detkat.yml` — macOS Intel/ARM deterministic KAT workflow
+- `experiments/` — cross-platform KAT outputs, AWS logs, and experiment scripts
 - `test/` — Hardhat/Mocha E2E tests with gas benchmarks
 
 ## Performance Metrics

@@ -8,6 +8,9 @@ typechain-types/
 
 # Go build outputs (Linux/macOS and Windows)
 # Leading slash → root-only match, won't catch cmd/vrfexp or cmd/vrfjson dirs
+.gocache/
+.docker-gocache/
+DF-VRF/.gocache/
 /vrfexp
 /vrfexp.exe
 /vrfjson

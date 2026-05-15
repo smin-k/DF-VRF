@@ -1,0 +1,79 @@
+name: Deterministic KAT
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/detkat.yml"
+      - "cmd/detkat/**"
+      - "crypto/**"
+      - "go.mod"
+      - "go.sum"
+
+jobs:
+  macos-detkat:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-intel
+            runner: macos-15-intel
+          - name: macos-arm64
+            runner: macos-15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Show environment
+        run: |
+          uname -a
+          sysctl -n machdep.cpu.brand_string || true
+          go version
+          go env GOOS GOARCH
+
+      - name: Run deterministic tests
+        run: |
+          go test ./crypto -run 'TestFalconVRFDeterministic|TestFalconVRFKeccakMode|TestVRFUniqueness_Determinism|TestVRFUniqueness_Determinism_Keccak' -v
+
+      - name: Generate deterministic known-answer vectors
+        run: |
+          go run ./cmd/detkat > "detkat_${{ matrix.name }}.json"
+          shasum -a 256 "detkat_${{ matrix.name }}.json"
+          grep '"vector_digest_hex"' "detkat_${{ matrix.name }}.json"
+
+      - name: Compare with Windows/Linux reference digest
+        run: |
+          expected="75a9a486600b2195bf153d0f4da91edfbdcec6df8c87b9fa4fc371808d3bb1db f0cc248d79ba60586cb94f46b0e0346b01b707672f5dfc8c4646037fcbdf8053 a022bbb94b4a85f9936add1157dc926cd09cec0862012d45884d407239913a73 87ebb668cf651b80fdf5944584e172a2eb326e6a4f32799861d2c9f26ebe17b3"
+          actual="$(grep '"vector_digest_hex"' "detkat_${{ matrix.name }}.json" | sed -E 's/.*"([0-9a-f]+)".*/\1/' | paste -sd ' ' -)"
+          printf '%s\n' "$actual"
+          test "$actual" = "$expected"
+
+      - name: Upload KAT artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: detkat-${{ matrix.name }}
+          path: detkat_${{ matrix.name }}.json
+
+  compare-artifacts:
+    name: compare macOS KAT artifacts
+    runs-on: ubuntu-latest
+    needs: macos-detkat
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: Compare artifacts byte-for-byte
+        run: |
+          find artifacts -type f -print -exec sha256sum {} \;
+          cmp artifacts/detkat-macos-intel/detkat_macos-intel.json artifacts/detkat-macos-arm64/detkat_macos-arm64.json
