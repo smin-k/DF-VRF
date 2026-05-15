@@ -601,6 +601,12 @@ int Zf(is_short_half)(uint32_t sqn, const int16_t *s2, unsigned logn);
 void Zf(to_ntt_monty)(uint16_t *h, unsigned logn);
 
 /*
+ * Convert a public key to plain NTT format, without Montgomery
+ * representation. Used by the Epervier compatibility wrapper.
+ */
+void Zf(to_ntt)(uint16_t *h, unsigned logn);
+
+/*
  * Internal signature verification code:
  *   c0[]      contains the hashed nonce+message
  *   s2[]      is the decoded signature
@@ -679,6 +685,15 @@ int Zf(count_nttzero)(const int16_t *sig, unsigned logn, uint8_t *tmp);
  * tmp[] must have 16-bit alignment.
  */
 int Zf(verify_recover)(uint16_t *h,
+	const uint16_t *c0, const int16_t *s1, const int16_t *s2,
+	unsigned logn, uint8_t *tmp);
+
+/*
+ * Epervier-compatible public-key recovery helpers (vrfy.c).
+ */
+uint16_t Zf(hint_epervier)(int16_t *s2, unsigned logn);
+
+int Zf(verify_recover_epervier)(uint16_t *h,
 	const uint16_t *c0, const int16_t *s1, const int16_t *s2,
 	unsigned logn, uint8_t *tmp);
 
