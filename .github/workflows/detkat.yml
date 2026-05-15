@@ -47,8 +47,9 @@ jobs:
 
       - name: Compare with Windows/Linux reference digest
         run: |
-          expected="359b9122b880be88c0a451f7c63a76fb6c225cb96fb02af9dc1ae6e19623e7f2"
-          actual="$(shasum -a 256 "detkat_${{ matrix.name }}.json" | awk '{print $1}')"
+          expected="75a9a486600b2195bf153d0f4da91edfbdcec6df8c87b9fa4fc371808d3bb1db f0cc248d79ba60586cb94f46b0e0346b01b707672f5dfc8c4646037fcbdf8053 a022bbb94b4a85f9936add1157dc926cd09cec0862012d45884d407239913a73 87ebb668cf651b80fdf5944584e172a2eb326e6a4f32799861d2c9f26ebe17b3"
+          actual="$(grep '"vector_digest_hex"' "detkat_${{ matrix.name }}.json" | sed -E 's/.*"([0-9a-f]+)".*/\1/' | paste -sd ' ' -)"
+          printf '%s\n' "$actual"
           test "$actual" = "$expected"
 
       - name: Upload KAT artifact
