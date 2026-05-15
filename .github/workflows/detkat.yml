@@ -2,6 +2,9 @@ name: Deterministic KAT
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - dfvrf-macos-detkat
 
 jobs:
   macos-detkat:
