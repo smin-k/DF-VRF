@@ -20,7 +20,7 @@ func main() {
 	outPath := flag.String("out", "vrf_samples.csv", "output csv path")
 	flag.Parse()
 
-	// 중요: empty seed 쓰지 말 것
+	// Use a fixed seed so the CSV experiment is reproducible.
 	seed := []byte("falcon-vrf-experiment-seed-2026-04-21")
 
 	pk, sk, err := falcon.GenerateKey(seed)
@@ -103,7 +103,7 @@ func main() {
 			}
 		}
 
-		// Falcon 내부 분포도 같이 보기
+		// Track the squared L2 norm of s2 as an implementation sanity check.
 		sigCT, err := proof.ConvertToCT()
 		if err != nil {
 			log.Fatalf("ConvertToCT failed at i=%d: %v", i, err)

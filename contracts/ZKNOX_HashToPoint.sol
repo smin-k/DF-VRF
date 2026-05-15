@@ -35,7 +35,8 @@ function hashToPointEVM(bytes memory salt, bytes memory msgHash) pure returns (u
         let extendedAdress := add(extendedState, 64)
         for {} lt(i, n) {} {
             let buffer := keccak256(add(extendedState, 32), 40)
-            for { let j := 240 } lt(j, 666) { j := sub(j, 16) } {
+            for { let k := 0 } lt(k, 16) { k := add(k, 1) } {
+                let j := sub(240, shl(4, k))
                 let chunk := and(shr(j, buffer), 0xffff)
                 if lt(chunk, kq) {
                     mstore(offset, mod(chunk, q))
@@ -70,11 +71,10 @@ function splitToHex(bytes32 x) pure returns (uint16[16] memory res) {
 /// @notice Hash message to polynomial point using NIST-compliant SHAKE256 XOF
 /// @dev Implements NIST FIPS 205 hash-to-point using SHAKE256 as the extendable output function
 /// @dev Samples 16-bit values and accepts those < kq=61445, reducing mod q=12289
-/// @param salt 40-byte salt value for domain separation (note: salt and msgHash order swapped vs EVM version)
+/// @param salt 40-byte salt value for domain separation
 /// @param msgHash 32-byte message hash
 /// @return Array of 512 coefficients in Z_q representing the hash-to-point result
 function hashToPointNIST(bytes memory salt, bytes memory msgHash) pure returns (uint256[] memory) {
-    // SALT AND MSG ARE SWAPPED!
     uint256[] memory hashed = new uint256[](512);
     uint256 i = 0;
     uint256 j = 0;

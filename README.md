@@ -9,7 +9,7 @@ Deterministic Falcon-512–based Verifiable Random Function (VRF) with practical
 - **Deterministic signing:** FALCON_DET512 eliminates randomness; same (sk, msg) → same proof.
 - **Two hash-to-point modes:**
   - **SHAKE256** (NIST-compliant): 4,051,960 gas on Ethereum
-  - **Keccak256** (EVM-optimized): 1,487,710 gas on Ethereum — 63% cheaper via native precompile
+  - **Keccak256** (EVM-optimized): 1,495,903 gas on Ethereum — 63% cheaper via native precompile
 - **Compact proofs:** Average 618 B (SHAKE) or 657 B (Keccak), vs 5 KB for LB-VRF or 12 KB for LaV
 - **Fast off-chain:** Prove 3.35 ms, Verify 0.023 ms (SHAKE256)
 - **Security properties tested:** Determinism, injectivity, pseudorandomness stats, no collisions
@@ -99,6 +99,7 @@ go test ./crypto -run 'TestFalconVRFDeterministic|TestFalconVRFKeccakMode|TestVR
   - `ZKNOX_vrf_falcon_evm.sol` — Keccak256 mode verifier (gas-optimized)
   - `ZKNOX_vrf_epervier.sol` — Epervier-based variants
 - `cmd/vrfjson/` — Go CLI exporting test fixtures (for Hardhat)
+- `cmd/vrfexp/` — experimental VRF sample CSV generator
 - `cmd/detkat/` — deterministic KAT generator for cross-platform reproducibility
 - `.github/workflows/detkat.yml` — macOS Intel/ARM deterministic KAT workflow
 - `experiments/` — cross-platform KAT outputs, AWS logs, and experiment scripts
@@ -126,7 +127,7 @@ go test ./crypto -run 'TestFalconVRFDeterministic|TestFalconVRFKeccakMode|TestVR
 | Verifier | Gas Cost | vs ECVRF |
 |----------|----------|----------|
 | `verify()` SHAKE256 | 4,051,960 | 135x |
-| `verify()` Keccak256 | **1,487,710** | 50x |
+| `verify()` Keccak256 | **1,495,903** | 50x |
 | Deploy | ~1M | baseline |
 
 **Note:** ECVRF ≈ 30K gas (secp256k1, not PQ-secure). Keccak mode gains 63% efficiency by replacing SHAKE256 with EVM's native Keccak256 precompile.
