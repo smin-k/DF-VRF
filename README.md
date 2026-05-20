@@ -132,19 +132,23 @@ go test ./crypto -run 'TestFalconVRFDeterministic|TestFalconVRFKeccakMode|TestVR
 
 **Note:** ECVRF ≈ 30K gas (secp256k1, not PQ-secure). Keccak mode gains 63% efficiency by replacing SHAKE256 with EVM's native Keccak256 precompile.
 
-### Gas Decomposition: Keccak vs NTT Witness
+### Gas Decomposition: Hash-to-Point vs NTT Witness
 
-The final Keccak verifier includes two independent optimizations:
+The final verifier combines two independent optimizations: replacing SHAKE256
+hash-to-point with EVM-native Keccak256, and passing `ntth = NTT(h)` as a witness
+instead of computing the public-key NTT on-chain.
 
 | Variant | Hash-to-point | Public key input | Verify gas |
 |---------|---------------|------------------|------------|
-| SHAKE verifier | SHAKE256 | `ntth = NTT(h)` witness | 4,051,960 |
+| SHAKE verifier with on-chain NTT(h) | SHAKE256 | compact `h`; computes `NTT(h)` on-chain | 4,623,461 |
+| SHAKE verifier with ntth witness | SHAKE256 | `ntth = NTT(h)` witness | 4,051,960 |
 | Keccak verifier with on-chain NTT(h) | Keccak256 | compact `h`; computes `NTT(h)` on-chain | 2,053,191 |
 | Keccak verifier with ntth witness | Keccak256 | `ntth = NTT(h)` witness | **1,495,903** |
 
-Within the Keccak setting, passing `ntth` instead of computing `NTT(h)` on-chain saves
-**557,288 gas** (**27.14%**). The remaining reduction from the SHAKE verifier is due
-primarily to replacing SHAKE256 hash-to-point with EVM-native Keccak256.
+Passing `ntth` instead of computing `NTT(h)` on-chain saves **571,501 gas**
+(**12.36%**) in the SHAKE verifier and **557,288 gas** (**27.14%**) in the Keccak
+verifier. Replacing SHAKE256 hash-to-point with EVM-native Keccak256 saves about
+2.56M gas when the same `ntth` witness design is used.
 
 ## Comparison with Other Post-Quantum VRFs
 
@@ -244,7 +248,8 @@ To make on-chain verification feasible, DF-VRF passes the **NTT-domain represent
    - Compute s1 = INTT(NTT(s2) ⊙ ntth)
    - Check ||c - s1||² + ||s2||² < sigBound
 
-**Cost reduction:** Avoiding on-chain public-key NTT saves 557,288 gas in the Keccak verifier
+**Cost reduction:** Avoiding on-chain public-key NTT saves 571,501 gas in the SHAKE verifier
+(4,623,461 → 4,051,960 gas) and 557,288 gas in the Keccak verifier
 (2,053,191 → 1,495,903 gas). The larger reduction from the SHAKE verifier is mostly due to
 replacing SHAKE256 hash-to-point with EVM-native Keccak256.
 
@@ -334,7 +339,7 @@ DF-VRF satisfies the three standard VRF properties:
    - On-chain registry where identities register their ntth once
    - Or: Application trusts a specific beacon/oracle service
    - Future: Add optional on-chain NTT computation for trust-minimized registration
-     (measured at +557,288 gas in the Keccak verifier)
+     (measured at +571,501 gas in the SHAKE verifier and +557,288 gas in the Keccak verifier)
 
 2. **Keccak mode domain separation:** Uses keccak(nonce || msg) internally; may conflict with other hash-to-point schemes. Standard practice is to vary the nonce structure.
 

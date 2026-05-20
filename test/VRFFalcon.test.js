@@ -228,6 +228,60 @@ describe("Gas benchmarks", function () {
   });
 });
 
+describe("ZKNOX_vrf_falcon_onchain_ntt (SHAKE256 + on-chain NTT(h))", function () {
+  let vrfFalcon;
+  let vrfFalconOnchainNtt;
+  let fixture;
+
+  before(async function () {
+    const WitnessFactory = await ethers.getContractFactory("ZKNOX_vrf_falcon");
+    vrfFalcon = await WitnessFactory.deploy();
+    await vrfFalcon.waitForDeployment();
+
+    const OnchainNttFactory = await ethers.getContractFactory("ZKNOX_vrf_falcon_onchain_ntt");
+    vrfFalconOnchainNtt = await OnchainNttFactory.deploy();
+    await vrfFalconOnchainNtt.waitForDeployment();
+
+    fixture = loadOrBuildFixture();
+    if (!fixture) this.skip();
+  });
+
+  it("matches the ntth-witness verifier result", async function () {
+    const transcript = Buffer.from(fixture.transcript_hex, "hex");
+    const salt = Buffer.from(fixture.fixed_salt_hex, "hex");
+    const s2 = fixture.s2_words.map((w) => BigInt(w));
+    const h = fixture.h_words.map((w) => BigInt(w));
+    const ntth = fixture.ntt_h_words.map((w) => BigInt(w));
+
+    const witnessResult = await vrfFalcon.verify(transcript, salt, s2, ntth);
+    const onchainNttResult = await vrfFalconOnchainNtt.verify(transcript, salt, s2, h);
+
+    expect(witnessResult).to.equal(true);
+    expect(onchainNttResult).to.equal(witnessResult);
+  });
+
+  it("verify() gas — SHAKE ntth witness vs on-chain NTT(h)", async function () {
+    const transcript = Buffer.from(fixture.transcript_hex, "hex");
+    const salt = Buffer.from(fixture.fixed_salt_hex, "hex");
+    const s2 = fixture.s2_words.map((w) => BigInt(w));
+    const h = fixture.h_words.map((w) => BigInt(w));
+    const ntth = fixture.ntt_h_words.map((w) => BigInt(w));
+
+    const witnessGas = await vrfFalcon.verify.estimateGas(transcript, salt, s2, ntth);
+    const onchainNttGas = await vrfFalconOnchainNtt.verify.estimateGas(transcript, salt, s2, h);
+    const savedGas = onchainNttGas - witnessGas;
+    const savedPctBps = (savedGas * 10000n) / onchainNttGas;
+
+    console.log(`\n  [gas] verify() SHAKE + ntth witness : ${witnessGas.toLocaleString()} gas`);
+    console.log(`\n  [gas] verify() SHAKE + on-chain NTT  : ${onchainNttGas.toLocaleString()} gas`);
+    console.log(
+      `\n  [gas] SHAKE ntth witness saved       : ${savedGas.toLocaleString()} gas (${Number(savedPctBps) / 100}%)`
+    );
+
+    expect(savedGas).to.be.greaterThan(0n);
+  });
+});
+
 describe("ZKNOX_vrf_falcon_evm (Keccak256 hash-to-point)", function () {
   let vrfFalconEvm;
   let fixture;
