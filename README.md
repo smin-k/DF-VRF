@@ -132,6 +132,20 @@ go test ./crypto -run 'TestFalconVRFDeterministic|TestFalconVRFKeccakMode|TestVR
 
 **Note:** ECVRF ≈ 30K gas (secp256k1, not PQ-secure). Keccak mode gains 63% efficiency by replacing SHAKE256 with EVM's native Keccak256 precompile.
 
+### Gas Decomposition: Keccak vs NTT Witness
+
+The final Keccak verifier includes two independent optimizations:
+
+| Variant | Hash-to-point | Public key input | Verify gas |
+|---------|---------------|------------------|------------|
+| SHAKE verifier | SHAKE256 | `ntth = NTT(h)` witness | 4,051,960 |
+| Keccak verifier with on-chain NTT(h) | Keccak256 | compact `h`; computes `NTT(h)` on-chain | 2,053,191 |
+| Keccak verifier with ntth witness | Keccak256 | `ntth = NTT(h)` witness | **1,495,903** |
+
+Within the Keccak setting, passing `ntth` instead of computing `NTT(h)` on-chain saves
+**557,288 gas** (**27.14%**). The remaining reduction from the SHAKE verifier is due
+primarily to replacing SHAKE256 hash-to-point with EVM-native Keccak256.
+
 ## Comparison with Other Post-Quantum VRFs
 
 | Scheme | Security | PK (B) | Proof (B) | Prove (ms) | Verify (ms) | On-chain |
@@ -230,7 +244,9 @@ To make on-chain verification feasible, DF-VRF passes the **NTT-domain represent
    - Compute s1 = INTT(NTT(s2) ⊙ ntth)
    - Check ||c - s1||² + ||s2||² < sigBound
 
-**Cost reduction:** Eliminates on-chain NTT (most expensive operation), reducing gas from 4M→1.5M.
+**Cost reduction:** Avoiding on-chain public-key NTT saves 557,288 gas in the Keccak verifier
+(2,053,191 → 1,495,903 gas). The larger reduction from the SHAKE verifier is mostly due to
+replacing SHAKE256 hash-to-point with EVM-native Keccak256.
 
 **Trust model:** The ntth witness is trusted to be correct. In production, either:
 - Verifier has registered ntth in an on-chain registry by its own computation
@@ -317,7 +333,8 @@ DF-VRF satisfies the three standard VRF properties:
 1. **Trust model for ntth:** Current design trusts the caller-provided ntth. Production use requires:
    - On-chain registry where identities register their ntth once
    - Or: Application trusts a specific beacon/oracle service
-   - Future: Add on-chain NTT computation (feasible but ~2–3M additional gas)
+   - Future: Add optional on-chain NTT computation for trust-minimized registration
+     (measured at +557,288 gas in the Keccak verifier)
 
 2. **Keccak mode domain separation:** Uses keccak(nonce || msg) internally; may conflict with other hash-to-point schemes. Standard practice is to vary the nonce structure.
 
