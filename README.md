@@ -425,4 +425,11 @@ canonical polynomial encoding checks to avoid encoding-level malleability.
 - **FALCON:** NIST PQC Standardization, Aug 2024. https://csrc.nist.gov/Projects/post-quantum-cryptography/
 - **ETHFALCON:** ZKNoxHQ, Efficient lattice verification on EVM. https://github.com/ZKNoxHQ/ETHFALCON
 - **FALCON_DET:** Deterministic Falcon signing (go-algorand reference)
-- **Keccak256:** SHA-3 family, used as EVM precompile (0x0001)
+- **Witnet VRF Solidity:** secp256k1 ECVRF verifier and gas baseline. https://github.com/witnet/vrf-solidity
+- **Witnet elliptic-curve-solidity:** Solidity secp256k1 arithmetic library used for non-`ecrecover` ECDSA/ECVRF baselines. https://github.com/witnet/elliptic-curve-solidity
+- **go-ethereum `ecrecover` precompile tests:** reference vectors showing the 3,000 gas native precompile cost. https://github.com/ethereum/go-ethereum/blob/master/core/vm/testdata/precompiles/ecRecover.json
+- **go-ethereum precompile implementation:** native `ecrecover` contract implementation in `core/vm/contracts.go`. https://github.com/ethereum/go-ethereum/blob/master/core/vm/contracts.go
+- **EIP-2:** Ethereum Homestead low-s transaction signature rule; useful context for ECDSA malleability. https://eips.ethereum.org/EIPS/eip-2
+- **RFC 6979:** deterministic ECDSA nonce generation. https://www.rfc-editor.org/rfc/rfc6979
+- **RFC 9381:** Verifiable Random Functions. https://www.rfc-editor.org/rfc/rfc9381
+- **Keccak256:** SHA-3 family hash exposed in the EVM as the `KECCAK256` opcode.
