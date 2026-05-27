@@ -228,6 +228,59 @@ describe("Gas benchmarks", function () {
   });
 });
 
+describe("Gas decomposition", function () {
+  let profiler;
+  let fixture;
+
+  before(async function () {
+    const ProfilerFactory = await ethers.getContractFactory("ZKNOX_vrf_gas_profiler");
+    profiler = await ProfilerFactory.deploy();
+    await profiler.waitForDeployment();
+    fixture = loadOrBuildFixture();
+    if (!fixture) this.skip();
+  });
+
+  it("breaks down verifier stages", async function () {
+    const transcript = Buffer.from(fixture.transcript_hex, "hex");
+    const shakeSalt = Buffer.from(fixture.fixed_salt_hex, "hex");
+    const keccakSalt = Buffer.from(fixture.nonce_keccak_hex, "hex");
+    const s2Shake = fixture.s2_words.map((w) => BigInt(w));
+    const s2Keccak = fixture.s2_keccak_words.map((w) => BigInt(w));
+    const ntth = fixture.ntt_h_words.map((w) => BigInt(w));
+
+    const hashedShake = Array.from(await profiler.hashToPointShake.staticCall(shakeSalt, transcript));
+    const hashedKeccak = Array.from(await profiler.hashToPointKeccak.staticCall(keccakSalt, transcript));
+    const s2Expanded = Array.from(await profiler.expandS2.staticCall(s2Keccak));
+    const nttS2 = Array.from(await profiler.nttS2.staticCall(s2Keccak));
+    const ntthExpanded = Array.from(await profiler.expandNtth.staticCall(ntth));
+    const product = Array.from(await profiler.pointwiseMul.staticCall(nttS2, ntthExpanded));
+    const s2hExpanded = Array.from(await profiler.intt.staticCall(product));
+    const s2hCompact = Array.from(await profiler.compact.staticCall(s2hExpanded));
+
+    const rows = [
+      ["format checks only (approx)", 0n],
+      ["hashToPoint SHAKE", await profiler.hashToPointShake.estimateGas(shakeSalt, transcript)],
+      ["hashToPoint Keccak", await profiler.hashToPointKeccak.estimateGas(keccakSalt, transcript)],
+      ["expand s2", await profiler.expandS2.estimateGas(s2Keccak)],
+      ["NTT(s2)", await profiler.nttS2.estimateGas(s2Keccak)],
+      ["expand ntth", await profiler.expandNtth.estimateGas(ntth)],
+      ["pointwise multiply", await profiler.pointwiseMul.estimateGas(nttS2, ntthExpanded)],
+      ["inverse NTT", await profiler.intt.estimateGas(product)],
+      ["compact s2h", await profiler.compact.estimateGas(s2hExpanded)],
+      ["halfmul compact total", await profiler.halfmulCompact.estimateGas(s2Keccak, ntth)],
+      ["normalize SHAKE", await profiler.normalize.estimateGas(s2hCompact, s2Shake, hashedShake)],
+      ["normalize Keccak", await profiler.normalize.estimateGas(s2hCompact, s2Keccak, hashedKeccak)],
+      ["core SHAKE", await profiler.core.estimateGas(s2Shake, ntth, hashedShake)],
+      ["core Keccak", await profiler.core.estimateGas(s2Keccak, ntth, hashedKeccak)],
+    ];
+
+    console.log("\n  [gas-decomp] DF-VRF verifier stages");
+    for (const [label, gas] of rows) {
+      console.log(`  [gas-decomp] ${label.padEnd(24)} : ${gas.toLocaleString()} gas`);
+    }
+  });
+});
+
 describe("ZKNOX_vrf_falcon_onchain_ntt (SHAKE256 + on-chain NTT(h))", function () {
   let vrfFalcon;
   let vrfFalconOnchainNtt;
