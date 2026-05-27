@@ -28,6 +28,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"math"
+	"math/bits"
 	"testing"
 )
 
@@ -179,6 +180,62 @@ func TestVRFUniqueness_ProofBinding(t *testing.T) {
 	}
 }
 
+// TestVRFUniqueness_PublicKeyBinding verifies that a proof generated for one
+// public key cannot be verified under another public key for the same message.
+func TestVRFUniqueness_PublicKeyBinding(t *testing.T) {
+	seed1 := make([]byte, 64)
+	seed2 := make([]byte, 64)
+	rand.Read(seed1)
+	rand.Read(seed2)
+
+	pub1, priv1, err := GenerateKey(seed1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub2, _, err := GenerateKey(seed2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msg := []byte("public-key-binding-test")
+	proof, _, err := priv1.VRFProve(&pub1, msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := pub2.VRFVerify(proof, msg); err == nil {
+		t.Fatal("proof generated under pub1 verified under pub2")
+	}
+}
+
+// TestVRFUniqueness_ModeSeparation verifies that SHAKE and Keccak proofs are
+// not interchangeable. This is important for the paper's dual-backend claims.
+func TestVRFUniqueness_ModeSeparation(t *testing.T) {
+	seed := make([]byte, 64)
+	rand.Read(seed)
+	pub, priv, err := GenerateKey(seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msg := []byte("mode-separation-test")
+	shakeProof, _, err := priv.VRFProveWithMode(&pub, msg, ModeSHAKE)
+	if err != nil {
+		t.Fatalf("shake prove: %v", err)
+	}
+	keccakProof, _, err := priv.VRFProveWithMode(&pub, msg, ModeKeccak)
+	if err != nil {
+		t.Fatalf("keccak prove: %v", err)
+	}
+
+	if _, err := pub.VRFVerifyWithMode(shakeProof, msg, ModeKeccak); err == nil {
+		t.Fatal("SHAKE proof verified in Keccak mode")
+	}
+	if _, err := pub.VRFVerifyWithMode(keccakProof, msg, ModeSHAKE); err == nil {
+		t.Fatal("Keccak proof verified in SHAKE mode")
+	}
+}
+
 // ── Property 3: Pseudorandomness (statistical tests) ─────────────────────────
 
 // TestVRFPseudorandomness_ByteDistribution runs a chi-squared goodness-of-fit
@@ -262,14 +319,11 @@ func TestVRFPseudorandomness_AvalancheEffect(t *testing.T) {
 			t.Fatalf("sample %d flipped: %v", i, err)
 		}
 
-		// Count differing bits between beta1 and beta2.
+		// Count differing bits between beta1 and beta2 over the full output.
 		for j := range beta1 {
 			diff := beta1[j] ^ beta2[j]
-			for diff != 0 {
-				flippedBits += int(diff & 1)
-				diff >>= 1
-				totalBits++
-			}
+			flippedBits += bits.OnesCount8(diff)
+			totalBits += 8
 		}
 	}
 
@@ -279,6 +333,175 @@ func TestVRFPseudorandomness_AvalancheEffect(t *testing.T) {
 	// Accept 40%–60% as reasonable; outside this range indicates bias.
 	if ratio < 0.40 || ratio > 0.60 {
 		t.Errorf("avalanche test FAILED: ratio=%.4f is outside [0.40, 0.60]", ratio)
+	}
+}
+
+// TestVRFPseudorandomness_ByteDistribution_Keccak runs the same byte-frequency
+// sanity check for the Keccak-backed VRF mode.
+func TestVRFPseudorandomness_ByteDistribution_Keccak(t *testing.T) {
+	const samples = 500
+	seed := make([]byte, 64)
+	rand.Read(seed)
+	pub, priv, err := GenerateKey(seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	freq := make([]int, 256)
+	total := 0
+	for i := 0; i < samples; i++ {
+		msg := make([]byte, 32)
+		rand.Read(msg)
+		_, beta, err := priv.VRFProveWithMode(&pub, msg, ModeKeccak)
+		if err != nil {
+			t.Fatalf("sample %d: %v", i, err)
+		}
+		for _, b := range beta {
+			freq[b]++
+			total++
+		}
+	}
+
+	expected := float64(total) / 256.0
+	chi2 := 0.0
+	for _, f := range freq {
+		diff := float64(f) - expected
+		chi2 += (diff * diff) / expected
+	}
+
+	const criticalValue = 332.0
+	t.Logf("keccak chi-squared = %.2f (critical = %.2f at p=0.001, df=255)", chi2, criticalValue)
+	if chi2 > criticalValue {
+		t.Errorf("keccak byte distribution test FAILED: chi-squared=%.2f > %.2f",
+			chi2, criticalValue)
+	}
+}
+
+// TestVRFPseudorandomness_AvalancheEffect_Keccak verifies the avalanche sanity
+// check for the Keccak-backed VRF mode.
+func TestVRFPseudorandomness_AvalancheEffect_Keccak(t *testing.T) {
+	const samples = 200
+	seed := make([]byte, 64)
+	rand.Read(seed)
+	pub, priv, err := GenerateKey(seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	totalBits := 0
+	flippedBits := 0
+
+	for i := 0; i < samples; i++ {
+		msg := make([]byte, 32)
+		rand.Read(msg)
+
+		_, beta1, err := priv.VRFProveWithMode(&pub, msg, ModeKeccak)
+		if err != nil {
+			t.Fatalf("sample %d original: %v", i, err)
+		}
+
+		flipByte := i % len(msg)
+		flipBit := uint(i % 8)
+		msg2 := append([]byte(nil), msg...)
+		msg2[flipByte] ^= 1 << flipBit
+
+		_, beta2, err := priv.VRFProveWithMode(&pub, msg2, ModeKeccak)
+		if err != nil {
+			t.Fatalf("sample %d flipped: %v", i, err)
+		}
+
+		for j := range beta1 {
+			diff := beta1[j] ^ beta2[j]
+			flippedBits += bits.OnesCount8(diff)
+			totalBits += 8
+		}
+	}
+
+	ratio := float64(flippedBits) / float64(totalBits)
+	t.Logf("keccak avalanche ratio = %.4f (ideal = 0.50)", ratio)
+
+	if ratio < 0.40 || ratio > 0.60 {
+		t.Errorf("keccak avalanche test FAILED: ratio=%.4f is outside [0.40, 0.60]", ratio)
+	}
+}
+
+// TestVRFPseudorandomness_NoCollisions_Keccak checks collision absence for the
+// Keccak-backed VRF mode over the same sample size.
+func TestVRFPseudorandomness_NoCollisions_Keccak(t *testing.T) {
+	const samples = 1000
+	seed := make([]byte, 64)
+	rand.Read(seed)
+	pub, priv, err := GenerateKey(seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	seen := make(map[VRFOutput]struct{}, samples)
+	for i := 0; i < samples; i++ {
+		msg := make([]byte, 32)
+		rand.Read(msg)
+		_, beta, err := priv.VRFProveWithMode(&pub, msg, ModeKeccak)
+		if err != nil {
+			t.Fatalf("sample %d: %v", i, err)
+		}
+		if _, exists := seen[beta]; exists {
+			t.Fatalf("keccak collision detected at sample %d", i)
+		}
+		seen[beta] = struct{}{}
+	}
+	t.Logf("keccak: no collisions in %d samples (512-bit output space)", samples)
+}
+
+// TestVRFPseudorandomness_BitBalance_Keccak checks per-bit balance for the
+// Keccak-backed VRF mode.
+func TestVRFPseudorandomness_BitBalance_Keccak(t *testing.T) {
+	const samples = 500
+	seed := make([]byte, 64)
+	rand.Read(seed)
+	pub, priv, err := GenerateKey(seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bitCounts := make([]int, VRFBetaSize*8)
+	for i := 0; i < samples; i++ {
+		msg := make([]byte, 32)
+		rand.Read(msg)
+		_, beta, err := priv.VRFProveWithMode(&pub, msg, ModeKeccak)
+		if err != nil {
+			t.Fatalf("sample %d: %v", i, err)
+		}
+		for byteIdx, b := range beta {
+			for bit := 0; bit < 8; bit++ {
+				if b&(1<<uint(bit)) != 0 {
+					bitCounts[byteIdx*8+bit]++
+				}
+			}
+		}
+	}
+
+	failed := 0
+	for i, count := range bitCounts {
+		ratio := float64(count) / float64(samples)
+		if ratio < 0.35 || ratio > 0.65 {
+			t.Errorf("keccak bit %d: set ratio=%.3f is outside [0.35, 0.65]", i, ratio)
+			failed++
+		}
+	}
+	if failed == 0 {
+		sum := 0.0
+		for _, c := range bitCounts {
+			sum += float64(c) / float64(samples)
+		}
+		mean := sum / float64(len(bitCounts))
+		variance := 0.0
+		for _, c := range bitCounts {
+			d := float64(c)/float64(samples) - mean
+			variance += d * d
+		}
+		variance /= float64(len(bitCounts))
+		t.Logf("keccak bit balance: mean=%.4f stddev=%.4f (ideal: mean=0.5)",
+			mean, math.Sqrt(variance))
 	}
 }
 

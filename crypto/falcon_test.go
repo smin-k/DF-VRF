@@ -278,6 +278,57 @@ func TestFalconNilSeed(t *testing.T) {
 	}
 }
 
+func TestFalconSignCompressedDeterministic(t *testing.T) {
+	const rounds = 10
+	seed := []byte("deterministic-falcon-shake-seed")
+	msg := []byte("deterministic-falcon-shake-message")
+
+	pub, priv, err := GenerateKey(seed)
+	if err != nil {
+		t.Fatalf("failed to generate keys: %s", err)
+	}
+
+	sig1, err := priv.SignCompressed(msg)
+	if err != nil {
+		t.Fatalf("failed to sign message: %s", err)
+	}
+	if err := pub.Verify(sig1, msg); err != nil {
+		t.Fatalf("failed to verify signature: %s", err)
+	}
+
+	for i := 0; i < rounds; i++ {
+		sig2, err := priv.SignCompressed(msg)
+		if err != nil {
+			t.Fatalf("round %d: failed to sign message: %s", i, err)
+		}
+		if !bytes.Equal(sig1, sig2) {
+			t.Fatalf("round %d: SHAKE signing is not deterministic", i)
+		}
+	}
+
+	changedMsg := append([]byte(nil), msg...)
+	changedMsg[0] ^= 0x01
+	sigChangedMsg, err := priv.SignCompressed(changedMsg)
+	if err != nil {
+		t.Fatalf("failed to sign changed message: %s", err)
+	}
+	if bytes.Equal(sig1, sigChangedMsg) {
+		t.Fatalf("different messages produced the same SHAKE signature")
+	}
+
+	_, otherPriv, err := GenerateKey([]byte("deterministic-falcon-shake-other-seed"))
+	if err != nil {
+		t.Fatalf("failed to generate second key: %s", err)
+	}
+	sigOtherKey, err := otherPriv.SignCompressed(msg)
+	if err != nil {
+		t.Fatalf("failed to sign with second key: %s", err)
+	}
+	if bytes.Equal(sig1, sigOtherKey) {
+		t.Fatalf("different keys produced the same SHAKE signature")
+	}
+}
+
 func TestFalconKeccakMode(t *testing.T) {
 	seed := []byte("keccak-mode-seed")
 	msg := []byte("keccak-mode-message")
@@ -301,6 +352,57 @@ func TestFalconKeccakMode(t *testing.T) {
 	}
 	if !bytes.Equal(sig1, sig2) {
 		t.Fatalf("keccak signing is not deterministic")
+	}
+}
+
+func TestFalconSignCompressedDeterministicKeccak(t *testing.T) {
+	const rounds = 10
+	seed := []byte("deterministic-falcon-keccak-seed")
+	msg := []byte("deterministic-falcon-keccak-message")
+
+	pub, priv, err := GenerateKey(seed)
+	if err != nil {
+		t.Fatalf("failed to generate keys: %s", err)
+	}
+
+	sig1, err := priv.SignCompressedWithMode(msg, ModeKeccak)
+	if err != nil {
+		t.Fatalf("failed to sign with keccak mode: %s", err)
+	}
+	if err := pub.VerifyWithMode(sig1, msg, ModeKeccak); err != nil {
+		t.Fatalf("failed to verify keccak signature: %s", err)
+	}
+
+	for i := 0; i < rounds; i++ {
+		sig2, err := priv.SignCompressedWithMode(msg, ModeKeccak)
+		if err != nil {
+			t.Fatalf("round %d: failed to sign with keccak mode: %s", i, err)
+		}
+		if !bytes.Equal(sig1, sig2) {
+			t.Fatalf("round %d: Keccak signing is not deterministic", i)
+		}
+	}
+
+	changedMsg := append([]byte(nil), msg...)
+	changedMsg[0] ^= 0x01
+	sigChangedMsg, err := priv.SignCompressedWithMode(changedMsg, ModeKeccak)
+	if err != nil {
+		t.Fatalf("failed to sign changed message with keccak mode: %s", err)
+	}
+	if bytes.Equal(sig1, sigChangedMsg) {
+		t.Fatalf("different messages produced the same Keccak signature")
+	}
+
+	_, otherPriv, err := GenerateKey([]byte("deterministic-falcon-keccak-other-seed"))
+	if err != nil {
+		t.Fatalf("failed to generate second key: %s", err)
+	}
+	sigOtherKey, err := otherPriv.SignCompressedWithMode(msg, ModeKeccak)
+	if err != nil {
+		t.Fatalf("failed to sign with second key in keccak mode: %s", err)
+	}
+	if bytes.Equal(sig1, sigOtherKey) {
+		t.Fatalf("different keys produced the same Keccak signature")
 	}
 }
 
