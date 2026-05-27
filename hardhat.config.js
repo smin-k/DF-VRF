@@ -4,6 +4,12 @@ const { subtask } = require("hardhat/config");
 const { TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS } = require("hardhat/builtin-tasks/task-names");
 require("dotenv").config();
 
+// The tests print paper-facing gas numbers directly via estimateGas/receipts.
+// Keep eth-gas-reporter as a separate opt-in because it can fail on locked-down
+// Windows environments with spawnSync node.exe EPERM.
+const ENABLE_ETH_GAS_REPORTER =
+  process.env.REPORT_GAS === "true" && process.env.ENABLE_ETH_GAS_REPORTER === "true";
+
 // Solidity files that depend on forge-std, sstore2, or InterfaceVerifier
 // are compiled by Foundry only; exclude them from Hardhat compilation.
 const FOUNDRY_ONLY = [
@@ -29,10 +35,16 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS, async (_, __, runSuper) => {
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.25",
-    settings: {
-      optimizer: { enabled: true, runs: 200 },
-    },
+    compilers: [
+      {
+        version: "0.8.25",
+        settings: { optimizer: { enabled: true, runs: 200 } },
+      },
+      {
+        version: "0.6.12",
+        settings: { optimizer: { enabled: true, runs: 200 } },
+      },
+    ],
   },
   networks: {
     hardhat: { chainId: 31337 },
@@ -41,7 +53,10 @@ module.exports = {
     },
     sepolia: {
       url: process.env.SEPOLIA_RPC_URL || "",
-      accounts: process.env.DEPLOYER_PRIVKEY ? [process.env.DEPLOYER_PRIVKEY] : [],
+      accounts:
+        process.env.DEPLOYER_PRIVKEY && process.env.DEPLOYER_PRIVKEY.length === 64
+          ? [process.env.DEPLOYER_PRIVKEY]
+          : [],
     },
   },
   paths: {
@@ -51,7 +66,7 @@ module.exports = {
     artifacts: "./artifacts",
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS === "true",
+    enabled: ENABLE_ETH_GAS_REPORTER,
     currency: "USD",
   },
 };
