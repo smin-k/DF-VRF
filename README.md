@@ -124,13 +124,28 @@ go test ./crypto -run 'TestFalconVRFDeterministic|TestFalconVRFKeccakMode|TestVR
 
 ### On-chain Gas (Hardhat EVM)
 
-| Verifier | Gas Cost | vs ECVRF |
-|----------|----------|----------|
-| `verify()` SHAKE256 | 4,051,960 | 135x |
-| `verify()` Keccak256 | **1,495,903** | 50x |
-| Deploy | ~1M | baseline |
+The main DF-VRF verifier cost is Falcon verification plus hash-to-point. The
+VRF output itself is derived as `beta = H(domain || pk || msg || proof)`, so
+ProofToHash is hash-level work rather than an additional group-relation check.
 
-**Note:** ECVRF ≈ 30K gas (secp256k1, not PQ-secure). Keccak mode gains 63% efficiency by replacing SHAKE256 with EVM's native Keccak256 precompile.
+| Verifier / baseline | Model | Gas cost |
+|---------------------|-------|----------|
+| DF-VRF SHAKE256 + `ntth` witness | NIST hash-to-point | 4,051,960 |
+| DF-VRF Keccak256 + `ntth` witness | EVM-optimized hash-to-point | **1,495,903** |
+| Witnet ECVRF full `verify` | Solidity secp256k1 VRF verification | 1,615,423 |
+| Witnet ECVRF `fastVerify` | `ecrecover`-assisted + extra witness | 110,077 |
+| ECDSA `ecrecover` wrapper | native precompile-assisted signature recovery | 26,988 |
+| ECDSA without `ecrecover` | Solidity secp256k1 arithmetic | 1,048,404 |
+
+ECVRF full verification is dominated by elliptic-curve relation checks. In the
+Witnet implementation, the two equations `U = sG - cY` and `V = sH - cGamma`
+cost about 788K gas each. By contrast, DF-VRF reduces verifiability to
+deterministic Falcon verification, and derives the VRF output by hashing the
+canonical proof transcript.
+
+ECVRF `fastVerify` is much cheaper, but it is a different model: the verifier
+receives additional EC witness points and uses the EVM `ecrecover` precompile.
+Computing those fast-verify parameters on-chain costs about 1,583,717 gas.
 
 ### Gas Decomposition: Hash-to-Point vs NTT Witness
 
@@ -149,6 +164,34 @@ Passing `ntth` instead of computing `NTT(h)` on-chain saves **571,501 gas**
 (**12.36%**) in the SHAKE verifier and **557,288 gas** (**27.14%**) in the Keccak
 verifier. Replacing SHAKE256 hash-to-point with EVM-native Keccak256 saves about
 2.56M gas when the same `ntth` witness design is used.
+
+### Classical Baseline Decomposition
+
+The repository also includes ECDSA and ECVRF gas baselines to make clear which
+comparisons use native EVM support.
+
+| Baseline | Gas | Interpretation |
+|----------|-----|----------------|
+| `ecrecover` precompile only | 3,000 | geth native precompile cost at address `0x01` |
+| Minimal ECDSA wrapper | 26,988 | transaction-level Solidity call using `ecrecover` |
+| Solidity secp256k1 ECDSA | 1,048,404 | no `ecrecover`; uses EVM field/curve arithmetic |
+| Witnet ECVRF full `verify` | 1,615,423 | full secp256k1 VRF verification in Solidity |
+| Witnet ECVRF `fastVerify` | 110,077 | extra witness + `ecrecover` shortcut |
+
+For the Witnet ECVRF full verifier, the measured stage costs were:
+
+| Stage | Gas |
+|-------|-----|
+| `hashToTryAndIncrement` | 58,987 |
+| `ecMulSubMul` for `U = sG - cY` | 787,700 |
+| `ecMulSubMul` for `V = sH - cGamma` | 789,824 |
+| `hashPoints` | 31,340 |
+| `gammaToHash` | 23,865 |
+
+These measurements show that full ECVRF verification is dominated by the two
+secp256k1 scalar-multiplication relations. DF-VRF's VRF-specific output
+derivation is instead hash-level; its dominant on-chain cost is Falcon
+verification.
 
 ## Comparison with Other Post-Quantum VRFs
 
@@ -216,6 +259,15 @@ Run gas benchmarks only:
 
 ```bash
 npm test -- --grep "Gas benchmarks"
+```
+
+Run gas decomposition and classical baselines:
+
+```bash
+npm test -- --grep "Gas decomposition"
+npm run baseline:ecdsa
+npm run baseline:ecdsa:pure
+npm run baseline:vrf
 ```
 
 Generate test fixture from Go:
@@ -300,6 +352,22 @@ DF-VRF satisfies the three standard VRF properties:
 - ✅ **Tested:** `TestVRFUniqueness_ProofBinding` — tampered proof ≠ same output
 - **Basis:** FALCON_DET determinism + Falcon unforgeability
 
+### Malleability note
+
+DF-VRF binds the output to the exact proof bytes:
+
+```text
+beta = SHA-512("FALCON-VRF-BETA-v1" || pk || msg || proof)
+```
+
+Thus, generated proofs are deterministic and proof-byte-bound. A modified proof
+must either fail Falcon verification or produce a different beta. This is
+different from claiming unconditional strong uniqueness for every possible
+Falcon signature encoding: a second accepted proof for the same `(pk, msg)`
+would amount to producing another valid Falcon signature for the fixed VRF
+transcript. For on-chain use, the verifier should keep strict length and
+canonical polynomial encoding checks to avoid encoding-level malleability.
+
 ### 3. Pseudorandomness (statistical)
 - ✅ **Tested:** `TestVRFPseudorandomness_ByteDistribution` — chi² = 247 (critical = 332)
 - ✅ **Tested:** `TestVRFPseudorandomness_AvalancheEffect` — 1-bit input change flips ~57% of output
@@ -322,6 +390,8 @@ DF-VRF satisfies the three standard VRF properties:
 - `ZKNOX_vrf_falcon_evm.sol` — Keccak256 hash-to-point (EVM-native, 63% cheaper gas)
 - Both reuse `ZKNOX_falcon_core.sol` for norm checking and s1 recovery
 - `ntth` (NTT of public key) is passed by caller, not computed on-chain
+- `ECDSAGasBaseline.sol`, `WitnetSecp256k1ECDSABaseline.sol`, and
+  `WitnetVRFGasBaseline.sol` are test-only baseline contracts
 
 **Build:**
 - `hardhat.config.js` auto-excludes Foundry-only files (importing `forge-std`)
