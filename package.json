@@ -10,6 +10,7 @@
     "baseline:ecdsa": "hardhat run scripts/ecdsa-gas-baseline.js",
     "baseline:ecdsa:pure": "hardhat run scripts/pure-ecdsa-gas-baseline.js",
     "baseline:ecdsa:sepolia": "hardhat run scripts/ecdsa-gas-baseline.js --network sepolia",
+    "baseline:deuring-arith": "hardhat run scripts/deuring-arithmetic-gas-baseline.js",
     "baseline:vrf": "hardhat run scripts/vrf-gas-baseline.js",
     "vrf:export": "go run ./cmd/vrfjson -out test/fixtures/vrf_sample.json"
   },
