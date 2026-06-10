@@ -1,14 +1,14 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_vrf_gas_profiler.sol
+// FILE: DFVRF_vrf_gas_profiler.sol
 // Description: Test-only gas profiler for DF-VRF verifier stages
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "./ZKNOX_HashToPoint.sol";
-import "./ZKNOX_NTT_falcon.sol";
-import "./ZKNOX_falcon_core.sol";
+import "./DFVRF_HashToPoint.sol";
+import "./DFVRF_NTT_falcon.sol";
+import "./DFVRF_falcon_core.sol";
 
 contract ZKNOX_vrf_gas_profiler {
     function hashToPointShake(bytes memory salt, bytes memory transcript) external pure returns (uint256[] memory) {
@@ -49,6 +49,14 @@ contract ZKNOX_vrf_gas_profiler {
 
     function halfmulCompact(uint256[] memory s2, uint256[] memory ntth) external pure returns (uint256[] memory) {
         return _ZKNOX_NTT_HALFMUL_Compact(s2, ntth);
+    }
+
+    function halfmulExpandedResult(uint256[] memory s2, uint256[] memory ntth)
+        external
+        pure
+        returns (uint256[] memory)
+    {
+        return _ZKNOX_NTT_HALFMUL_ExpandedResult(s2, ntth);
     }
 
     function normalize(uint256[] memory s1, uint256[] memory s2, uint256[] memory hashed)

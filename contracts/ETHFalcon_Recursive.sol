@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {NTT} from "./NTT_Recursive.sol";
 import {Test, console} from "forge-std/Test.sol";
-import "../src/ZKNOX_HashToPoint.sol"; // Tetration implementation is used here
+import "../src/DFVRF_HashToPoint.sol"; // Tetration implementation is used here
 
 contract ETHFalcon {
    

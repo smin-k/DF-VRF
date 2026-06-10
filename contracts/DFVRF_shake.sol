@@ -1,7 +1,7 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_shake.sol
+// FILE: DFVRF_shake.sol
 // Description: SHAKE256 XOF implementation optimized for EVM with Keccak-f[1600] permutation
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;

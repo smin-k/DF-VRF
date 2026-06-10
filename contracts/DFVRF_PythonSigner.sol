@@ -1,7 +1,7 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_PythonSigner.sol
+// FILE: DFVRF_PythonSigner.sol
 // Description: Test interface for signing messages using external Python Falcon implementation
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;

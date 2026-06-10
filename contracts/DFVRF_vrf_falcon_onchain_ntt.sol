@@ -1,15 +1,15 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_vrf_falcon_onchain_ntt.sol
+// FILE: DFVRF_vrf_falcon_onchain_ntt.sol
 // Description: Benchmark-only SHAKE VRF verifier that computes NTT(h) on-chain
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "./ZKNOX_common.sol";
-import "./ZKNOX_falcon_utils.sol";
-import "./ZKNOX_falcon_core.sol";
-import "./ZKNOX_HashToPoint.sol";
+import "./DFVRF_common.sol";
+import "./DFVRF_falcon_utils.sol";
+import "./DFVRF_falcon_core.sol";
+import "./DFVRF_HashToPoint.sol";
 
 /// @title ZKNOX_vrf_falcon_onchain_ntt
 /// @notice Benchmark helper for measuring public-key NTT gas in the SHAKE verifier.

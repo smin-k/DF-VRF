@@ -3,22 +3,13 @@
  *
  * Integration tests for ZKNOX_vrf_falcon and ZKNOX_vrf_epervier.
  *
- * ── Architecture note ────────────────────────────────────────────────────────
- * The Go layer uses Falcon-1024 (n=1024, 1024 polynomial coefficients).
- * The Solidity ZKNOX library was designed for Falcon-512 (n=512, 32 uint256
- * words per polynomial, 16 coefficients per word).
+ * Architecture note
+ * The Go layer and Solidity verifier both use deterministic Falcon-512
+ * (n=512, 32 uint256 words per polynomial, 16 coefficients per word).
  *
- * On-chain Falcon-1024 verification requires:
- *   • ZKNOX_falcon_utils1024.sol  (n=1024, falcon_S1024=64, sigBound for 1024)
- *   • ZKNOX_NTT_falcon1024.sol    (2048-point NTT roots mod q=12289)
- *   • ZKNOX_vrf_falcon1024.sol    (updated length checks)
- *
- * Until those are implemented:
- *   • "Go bridge" tests validate the JSON fixture format.
- *   • "Falcon-512 smoke" tests verify the existing contracts behave correctly
- *     with correctly-shaped (but dummy) data.
- *   • The expected revert test documents the 512-vs-1024 gap explicitly.
- * ─────────────────────────────────────────────────────────────────────────────
+ * The smoke tests exercise shape and revert behavior with dummy data. The Go
+ * VRF bridge tests use cmd/vrfjson to generate real Falcon-512 fixtures and
+ * verify them on-chain, including the NTT(h) witness path.
  */
 
 const { expect } = require("chai");
@@ -27,40 +18,7 @@ const path = require("path");
 const fs = require("fs");
 const { execSync } = require("child_process");
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Pack an array of numeric coefficients (each 16-bit) into BigInt uint256 words.
- * 16 coefficients per word, little-endian within the word.
- * Negative values are reduced mod q=12289 before packing.
- */
-function packCoeffs(coeffs, q = 12289n) {
-  const numWords = Math.ceil(coeffs.length / 16);
-  const words = [];
-  for (let i = 0; i < numWords; i++) {
-    let w = 0n;
-    for (let j = 0; j < 16; j++) {
-      const idx = i * 16 + j;
-      if (idx >= coeffs.length) break;
-      let v = BigInt(coeffs[idx]);
-      if (v < 0n) v = q + v;
-      w |= v << BigInt(j * 16);
-    }
-    words.push(w);
-  }
-  return words;
-}
-
-// 40-byte fixed salt for Falcon det1024, salt_version=0:
-//   [0x00, 0x0A, 'F','A','L','C','O','N','_','D','E','T', 0x00×28]
-const FIXED_SALT_1024 = new Uint8Array(40);
-FIXED_SALT_1024[0] = 0x00; // salt_version
-FIXED_SALT_1024[1] = 0x0a; // FALCON_DET1024_LOGN = 10
-"FALCON_DET"
-  .split("")
-  .forEach((c, i) => (FIXED_SALT_1024[2 + i] = c.charCodeAt(0)));
-
-// ── Fixtures ─────────────────────────────────────────────────────────────────
+// Fixtures
 
 const FIXTURE_PATH = path.join(__dirname, "fixtures", "vrf_sample.json");
 
@@ -79,7 +37,7 @@ function loadOrBuildFixture() {
   return JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8"));
 }
 
-// ── Test suites ───────────────────────────────────────────────────────────────
+// Test suites
 
 describe("ZKNOX_vrf_falcon", function () {
   let vrfFalcon;
@@ -123,7 +81,7 @@ describe("ZKNOX_vrf_falcon", function () {
     });
 
     it("reverts on wrong s2 length (64 words instead of 32)", async function () {
-      // This is the error you get when passing Falcon-1024 data to the 512 contract.
+      // Falcon-512 expects 512 coefficients packed into 32 uint256 words.
       try {
         await vrfFalcon.verify(dummyTranscript, dummySalt, Array(64).fill(0n), dummyNtth);
         expect.fail("expected revert");
@@ -133,7 +91,7 @@ describe("ZKNOX_vrf_falcon", function () {
     });
   });
 
-  describe("Go VRF bridge (Falcon-1024)", function () {
+  describe("Go VRF bridge (Falcon-512)", function () {
     let fixture;
 
     before(function () {
@@ -268,6 +226,7 @@ describe("Gas decomposition", function () {
       ["inverse NTT", await profiler.intt.estimateGas(product)],
       ["compact s2h", await profiler.compact.estimateGas(s2hExpanded)],
       ["halfmul compact total", await profiler.halfmulCompact.estimateGas(s2Keccak, ntth)],
+      ["halfmul expanded result", await profiler.halfmulExpandedResult.estimateGas(s2Keccak, ntth)],
       ["normalize SHAKE", await profiler.normalize.estimateGas(s2hCompact, s2Shake, hashedShake)],
       ["normalize Keccak", await profiler.normalize.estimateGas(s2hCompact, s2Keccak, hashedKeccak)],
       ["core SHAKE", await profiler.core.estimateGas(s2Shake, ntth, hashedShake)],

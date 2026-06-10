@@ -1,12 +1,12 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_falcon_encodings.sol
+// FILE: DFVRF_falcon_encodings.sol
 // Description: verify falcon core component
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "./ZKNOX_falcon_utils.sol";
+import "./DFVRF_falcon_utils.sol";
 //import {Test, console} from "forge-std/Test.sol";
 
 uint256 constant max_in_len = 666;

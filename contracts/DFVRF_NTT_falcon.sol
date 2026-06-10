@@ -1,12 +1,12 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_NTT_falcon.sol
+// FILE: DFVRF_NTT_falcon.sol
 // Description: verify falcon core component
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "./ZKNOX_falcon_utils.sol";
+import "./DFVRF_falcon_utils.sol";
 
 //// internal version to spare call data cost
 
@@ -81,7 +81,7 @@ function _ZKNOX_NTTFW_vectorized(uint256[] memory a) pure returns (uint256[] mem
     return a;
 }
 
-// Already optimized — no changes needed
+// Already optimized ??no changes needed
 function _ZKNOX_VECMULMOD(uint256[] memory a, uint256[] memory b) pure returns (uint256[] memory res) {
     res = new uint256[](n);
     assembly ("memory-safe") {
@@ -172,7 +172,7 @@ function _ZKNOX_NTTINV_vectorized(uint256[] memory a) pure returns (uint256[] me
             m := shr(1, m)
         }
 
-        // Final scaling — pointer-based
+        // Final scaling ??pointer-based
         let ptr := base
         let ptr_end := add(base, shl(5, n)) // n * 32
         for {} lt(ptr, ptr_end) { ptr := add(ptr, 32) } {
@@ -189,4 +189,37 @@ function _ZKNOX_NTT_HALFMUL_Compact(uint256[] memory a, uint256[] memory b) pure
                 _ZKNOX_VECMULMOD(_ZKNOX_NTTFW_vectorized(_ZKNOX_NTT_Expand(a)), _ZKNOX_NTT_Expand(b))
             )
         ));
+}
+
+/// @notice Computes HALFMUL(a_compact, b_compact) returning expanded (512-word) result
+/// @dev Eliminates three redundant operations versus _ZKNOX_NTT_Expand(_ZKNOX_NTT_HALFMUL_Compact(...)):
+///      (1) Expand(ntth): b coefficients extracted inline during pointwise multiply
+///      (2) Compact after INTT: result returned expanded for direct use in falcon_normalize
+///      (3) Expand in falcon_core: caller receives expanded result without extra round-trip
+/// @param a Compact s2 polynomial (32 words), will be forward-NTT'd
+/// @param b_compact Compact ntth polynomial (32 words), already in NTT domain
+/// @return Expanded 512-word polynomial = INTT(NTT(a) ??b_compact)
+function _ZKNOX_NTT_HALFMUL_ExpandedResult(uint256[] memory a, uint256[] memory b_compact)
+    pure
+    returns (uint256[] memory)
+{
+    uint256[] memory ntt_a = _ZKNOX_NTTFW_vectorized(_ZKNOX_NTT_Expand(a));
+    uint256[] memory res = new uint256[](n);
+
+    assembly ("memory-safe") {
+        let aPtr := add(ntt_a, 32)
+        let resPtr := add(res, 32)
+        let bBase := add(b_compact, 32)
+
+        for { let wi := 0 } lt(wi, 32) { wi := add(wi, 1) } {
+            let bword := mload(add(bBase, shl(5, wi)))
+            for { let j := 0 } lt(j, 16) { j := add(j, 1) } {
+                mstore(resPtr, mulmod(mload(aPtr), and(shr(shl(4, j), bword), 0xffff), q))
+                aPtr := add(aPtr, 32)
+                resPtr := add(resPtr, 32)
+            }
+        }
+    }
+
+    return _ZKNOX_NTTINV_vectorized(res);
 }

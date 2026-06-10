@@ -2,8 +2,8 @@
 pragma solidity ^0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
-import "../src/ZKNOX_falcon_encodings.sol";
-import "../src/ZKNOX_display.sol";
+import "../src/DFVRF_falcon_encodings.sol";
+import "../src/DFVRF_display.sol";
 
 contract Encodings_Test is Test {
     function test_encodings_decompress() public view {

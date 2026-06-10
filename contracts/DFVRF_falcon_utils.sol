@@ -1,7 +1,7 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_falcon_utils.sol
+// FILE: DFVRF_falcon_utils.sol
 // Description: Utility functions and constants for Falcon signature verification
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;

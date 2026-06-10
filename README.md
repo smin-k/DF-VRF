@@ -1,15 +1,15 @@
 # DF-VRF: Post-Quantum VRF for Ethereum
 
-Deterministic Falcon-512–based Verifiable Random Function (VRF) with practical on-chain verification on EVM.
+Deterministic Falcon-512-based Verifiable Random Function (VRF) with practical on-chain verification on EVM.
 
 **Key contribution:** First practical Falcon-based VRF with on-chain Solidity verifier, combining FALCON_DET determinism, ETHFALCON's NTT-domain verification, and Keccak256-based hash-to-point for EVM efficiency.
 
 ## Features
 
-- **Deterministic signing:** FALCON_DET512 eliminates randomness; same (sk, msg) → same proof.
+- **Deterministic signing:** FALCON_DET512 eliminates randomness; same (sk, msg) -> same proof.
 - **Two hash-to-point modes:**
   - **SHAKE256** (NIST-compliant): 4,051,960 gas on Ethereum
-  - **Keccak256** (EVM-optimized): 1,495,903 gas on Ethereum — 63% cheaper via native precompile
+  - **Keccak256** (EVM-optimized): 1,495,903 gas on Ethereum -- 63% cheaper via native precompile
 - **Compact proofs:** Average 618 B (SHAKE) or 657 B (Keccak), vs 5 KB for LB-VRF or 12 KB for LaV
 - **Fast off-chain:** Prove 3.35 ms, Verify 0.023 ms (SHAKE256)
 - **Security properties tested:** Determinism, injectivity, pseudorandomness stats, no collisions
@@ -90,20 +90,20 @@ go test ./crypto -run 'TestFalconVRFDeterministic|TestFalconVRFKeccakMode|TestVR
 ## Directory Layout
 
 - `crypto/`: C implementation (Falcon-512 det, Keccak support) + Go bindings for VRF API
-  - `falcon.go` — public/private key types, signing, VRF Prove/Verify
-  - `df_vrf.go` — VRF transcript and output derivation
-  - `ntt_helper.c` — NTT computation and Keccak proof extraction
-  - `*_test.go` — unit tests + security property tests
+  - `falcon.go` -- public/private key types, signing, VRF Prove/Verify
+  - `df_vrf.go` -- VRF transcript and output derivation
+  - `ntt_helper.c` -- NTT computation and Keccak proof extraction
+  - `*_test.go` -- unit tests + security property tests
 - `contracts/`: Solidity verification contracts
-  - `ZKNOX_vrf_falcon.sol` — SHAKE256 mode verifier
-  - `ZKNOX_vrf_falcon_evm.sol` — Keccak256 mode verifier (gas-optimized)
-  - `ZKNOX_vrf_epervier.sol` — Epervier-based variants
-- `cmd/vrfjson/` — Go CLI exporting test fixtures (for Hardhat)
-- `cmd/vrfexp/` — experimental VRF sample CSV generator
-- `cmd/detkat/` — deterministic KAT generator for cross-platform reproducibility
-- `.github/workflows/detkat.yml` — macOS Intel/ARM deterministic KAT workflow
-- `experiments/` — cross-platform KAT outputs, AWS logs, and experiment scripts
-- `test/` — Hardhat/Mocha E2E tests with gas benchmarks
+  - `DFVRF_vrf_falcon.sol` -- SHAKE256 mode verifier
+  - `DFVRF_vrf_falcon_evm.sol` -- Keccak256 mode verifier (gas-optimized)
+  - `DFVRF_vrf_epervier.sol` -- Epervier-based variants
+- `cmd/vrfjson/` -- Go CLI exporting test fixtures (for Hardhat)
+- `cmd/vrfexp/` -- experimental VRF sample CSV generator
+- `cmd/detkat/` -- deterministic KAT generator for cross-platform reproducibility
+- `.github/workflows/detkat.yml` -- macOS Intel/ARM deterministic KAT workflow
+- `experiments/` -- cross-platform KAT outputs, AWS logs, and experiment scripts
+- `test/` -- Hardhat/Mocha E2E tests with gas benchmarks
 
 ## Performance Metrics
 
@@ -197,13 +197,13 @@ verification.
 
 | Scheme | Security | PK (B) | Proof (B) | Prove (ms) | Verify (ms) | On-chain |
 |--------|----------|--------|-----------|------------|------------|----------|
-| LB-VRF | Mod-SIS/LWE | 3,320 | ~5,000 | ~3 | ~1 | ✗ |
-| LaV | Mod-LWE | 6,420 | ~12,000 | — | — | ✗ |
-| X-VRF | Hash (XMSS) | ~2,000 | ≤3,000 | — | — | ✗† |
-| DeuringVRF | Isogeny | 224 | 226 | ~160 | ~18 | ✗ |
-| **DF-VRF** | **NTRU** | **897** | **618** | **3.35** | **0.023** | ✅ |
+| LB-VRF | Mod-SIS/LWE | 3,320 | ~5,000 | ~3 | ~1 | no |
+| LaV | Mod-LWE | 6,420 | ~12,000 | n/a | n/a | no |
+| X-VRF | Hash (XMSS) | ~2,000 | <=3,000 | n/a | n/a | partial |
+| DeuringVRF | Isogeny | 224 | 226 | ~160 | ~18 | no |
+| **DF-VRF** | **NTRU** | **897** | **618** | **3.35** | **0.023** | yes |
 
-†X-VRF's uniqueness was broken in 2024.
+X-VRF's uniqueness was broken in 2024.
 
 ## Go Module
 
@@ -274,7 +274,7 @@ Generate test fixture from Go:
 
 ```bash
 npm run vrf:export
-# → test/fixtures/vrf_sample.json
+# -> test/fixtures/vrf_sample.json
 ```
 
 Deploy to local Hardhat node:
@@ -292,17 +292,17 @@ To make on-chain verification feasible, DF-VRF passes the **NTT-domain represent
 
 **Workflow:**
 
-1. **Off-chain (Go):** Generate VRF proof π = signature(transcript)
+1. **Off-chain (Go):** Generate VRF proof pi = signature(transcript)
 2. **Off-chain:** Compute ntth = NTT(h) once per public key
 3. **On-chain call:** `verify(transcript, salt, s2, ntth)`
 4. **On-chain (Solidity):** 
    - Recover c = Falcon challenge from transcript
-   - Compute s1 = INTT(NTT(s2) ⊙ ntth)
+   - Compute s1 = INTT(NTT(s2) * ntth)
    - Check ||c - s1||² + ||s2||² < sigBound
 
 **Cost reduction:** Avoiding on-chain public-key NTT saves 571,501 gas in the SHAKE verifier
-(4,623,461 → 4,051,960 gas) and 557,288 gas in the Keccak verifier
-(2,053,191 → 1,495,903 gas). The larger reduction from the SHAKE verifier is mostly due to
+(4,623,461 -> 4,051,960 gas) and 557,288 gas in the Keccak verifier
+(2,053,191 -> 1,495,903 gas). The larger reduction from the SHAKE verifier is mostly due to
 replacing SHAKE256 hash-to-point with EVM-native Keccak256.
 
 **Trust model:** The ntth witness is trusted to be correct. In production, either:
@@ -313,13 +313,13 @@ replacing SHAKE256 hash-to-point with EVM-native Keccak256.
 
 | Component | Status |
 |-----------|--------|
-| Go VRF prove/verify (Falcon-512, deterministic) | ✅ complete |
-| Keccak256 hash-to-point (Go) | ✅ complete |
-| NTT computation (Go) | ✅ complete |
-| ZKNOX_vrf_falcon (SHAKE256 verifier) | ✅ verified, 4M gas |
-| ZKNOX_vrf_falcon_evm (Keccak256 verifier) | ✅ verified, 1.5M gas |
-| ZKNOX_vrf_epervier (Epervier verifier) | ✅ compiles, untested |
-| Security property tests | ✅ 9/9 passing |
+| Go VRF prove/verify (Falcon-512, deterministic) | complete |
+| Keccak256 hash-to-point (Go) | complete |
+| NTT computation (Go) | complete |
+| DFVRF_vrf_falcon.sol (SHAKE256 verifier) | verified, 4M gas |
+| DFVRF_vrf_falcon_evm.sol (Keccak256 verifier) | verified, 1.5M gas |
+| DFVRF_vrf_epervier.sol (Epervier verifier) | compiles, untested |
+| Security property tests | 9/9 passing |
 
 ## Cryptographic Parameters
 
@@ -332,8 +332,8 @@ replacing SHAKE256 hash-to-point with EVM-native Keccak256.
 | logn | 9 |
 | **Fixed salt (SHAKE mode)** | 40 bytes: `[0x00, 0x09, "FALCON_DET", 0x00×28]` |
 | **Variable nonce (Keccak mode)** | 40 bytes, derived from proof header |
-| **VRF transcript** | SHA-512(`"FALCON-VRF-PROVE-v1"` ‖ pk ‖ msg) |
-| **VRF output β** | SHA-512(`"FALCON-VRF-BETA-v1"` ‖ pk ‖ msg ‖ proof) |
+| **VRF transcript** | SHA-512(`"FALCON-VRF-PROVE-v1" || pk || msg`) |
+| **VRF output beta** | SHA-512(`"FALCON-VRF-BETA-v1" || pk || msg || proof`) |
 | **Polynomial packing** | 16 coefficients × 16 bits per uint256 word |
 | **s2 / h word count** | 32 words (512 coefficients ÷ 16 per word) |
 
@@ -342,14 +342,14 @@ replacing SHAKE256 hash-to-point with EVM-native Keccak256.
 DF-VRF satisfies the three standard VRF properties:
 
 ### 1. Correctness (Provability)
-- ✅ **Tested:** `TestFalconVRFRoundTrip` — Prove → Verify always succeeds
+- **Tested:** `TestFalconVRFRoundTrip` -- Prove -> Verify always succeeds
 - **Basis:** Falcon-512 signature correctness
 
 ### 2. Uniqueness
-- ✅ **Tested:** `TestVRFUniqueness_Determinism` — same (sk, msg) → same proof
-- ✅ **Tested:** `TestVRFUniqueness_DifferentKeys` — different pk → different output
-- ✅ **Tested:** `TestVRFUniqueness_DifferentMessages` — different msg → different output
-- ✅ **Tested:** `TestVRFUniqueness_ProofBinding` — tampered proof ≠ same output
+- **Tested:** `TestVRFUniqueness_Determinism` -- same (sk, msg) -> same proof
+- **Tested:** `TestVRFUniqueness_DifferentKeys` -- different pk -> different output
+- **Tested:** `TestVRFUniqueness_DifferentMessages` -- different msg -> different output
+- **Tested:** `TestVRFUniqueness_ProofBinding` -- tampered proof != same output
 - **Basis:** FALCON_DET determinism + Falcon unforgeability
 
 ### Malleability note
@@ -369,10 +369,10 @@ transcript. For on-chain use, the verifier should keep strict length and
 canonical polynomial encoding checks to avoid encoding-level malleability.
 
 ### 3. Pseudorandomness (statistical)
-- ✅ **Tested:** `TestVRFPseudorandomness_ByteDistribution` — chi² = 247 (critical = 332)
-- ✅ **Tested:** `TestVRFPseudorandomness_AvalancheEffect` — 1-bit input change flips ~57% of output
-- ✅ **Tested:** `TestVRFPseudorandomness_NoCollisions` — 1,000 samples, 0 collisions
-- ✅ **Tested:** `TestVRFPseudorandomness_BitBalance` — bit balance mean = 0.501
+- **Tested:** `TestVRFPseudorandomness_ByteDistribution` -- chi^2 = 247 (critical = 332)
+- **Tested:** `TestVRFPseudorandomness_AvalancheEffect` -- 1-bit input change flips ~57% of output
+- **Tested:** `TestVRFPseudorandomness_NoCollisions` -- 1,000 samples, 0 collisions
+- **Tested:** `TestVRFPseudorandomness_BitBalance` -- bit balance mean = 0.501
 - **Basis:** Falcon unforgeability + SHA-512 PRF
 
 **Note:** These are empirical tests of necessary conditions. Formal security reductions are given in the accompanying research paper.
@@ -386,9 +386,9 @@ canonical polynomial encoding checks to avoid encoding-level malleability.
 - Keccak256 mode uses `/crypto/ntt_helper.c` for hash-to-point extraction
 
 **Solidity:**
-- `ZKNOX_vrf_falcon.sol` — SHAKE256 hash-to-point (NIST-compliant but gas-expensive)
-- `ZKNOX_vrf_falcon_evm.sol` — Keccak256 hash-to-point (EVM-native, 63% cheaper gas)
-- Both reuse `ZKNOX_falcon_core.sol` for norm checking and s1 recovery
+- `DFVRF_vrf_falcon.sol` -- SHAKE256 hash-to-point (NIST-compliant but gas-expensive)
+- `DFVRF_vrf_falcon_evm.sol` -- Keccak256 hash-to-point (EVM-native, 63% cheaper gas)
+- Both reuse `DFVRF_falcon_core.sol` for norm checking and s1 recovery
 - `ntth` (NTT of public key) is passed by caller, not computed on-chain
 - `ECDSAGasBaseline.sol`, `WitnetSecp256k1ECDSABaseline.sol`, and
   `WitnetVRFGasBaseline.sol` are test-only baseline contracts
@@ -408,8 +408,9 @@ canonical polynomial encoding checks to avoid encoding-level malleability.
 1. **Trust model for ntth:** Current design trusts the caller-provided ntth. Production use requires:
    - On-chain registry where identities register their ntth once
    - Or: Application trusts a specific beacon/oracle service
-   - Future: Add optional on-chain NTT computation for trust-minimized registration
-     (measured at +571,501 gas in the SHAKE verifier and +557,288 gas in the Keccak verifier)
+   - Optional on-chain NTT variants are implemented for trust-minimized registration
+     and measured at +571,501 gas in the SHAKE verifier and +557,288 gas in the
+     Keccak verifier
 
 2. **Keccak mode domain separation:** Uses keccak(nonce || msg) internally; may conflict with other hash-to-point schemes. Standard practice is to vary the nonce structure.
 
@@ -418,7 +419,7 @@ canonical polynomial encoding checks to avoid encoding-level malleability.
    - Applications willing to accept PQ security premium
    - **Not** suitable for per-transaction randomness
 
-4. **Epervier support:** ZKNOX_vrf_epervier.sol included but untested; needs integration tests
+4. **Epervier support:** DFVRF_vrf_epervier.sol included but untested; needs integration tests
 
 ## References
 

@@ -1,7 +1,7 @@
 // cmd/vrfjson: generates a Falcon-512 VRF proof and exports all data needed
 // for on-chain verification as a JSON fixture file.
 //
-// SHAKE256 fields (NIST-compliant, ZKNOX_vrf_falcon.sol):
+// SHAKE256 fields (NIST-compliant, DFVRF_vrf_falcon.sol):
 //   seed           - key-generation seed (hex)
 //   msg_hex        - signed message (hex)
 //   transcript_hex - 64-byte VRF transcript SHA-512("FALCON-VRF-PROVE-v1"||pk||msg)
@@ -13,7 +13,7 @@
 //   h_words        - public-key polynomial h packed as uint256 words (same layout)
 //   ntt_h_words    - NTT(h) mod q — ntth input for Solidity falcon_core
 //
-// Keccak256 fields (EVM-optimised, ZKNOX_vrf_falcon_evm.sol):
+// Keccak256 fields (EVM-optimised, DFVRF_vrf_falcon_evm.sol):
 //   proof_keccak_hex - compressed signature bytes (VRF proof, Keccak256 mode)
 //   beta_keccak_hex  - 64-byte VRF output for keccak proof
 //   s2_keccak_words  - s2 polynomial from keccak proof (same h/ntth as SHAKE256)

@@ -14,17 +14,17 @@ const ENABLE_ETH_GAS_REPORTER =
 // are compiled by Foundry only; exclude them from Hardhat compilation.
 const FOUNDRY_ONLY = [
   /[/\\]test[/\\]/,           // contracts/test/*.sol
-  /ZKNOX_ethfalcon\.sol$/,    // needs sstore2 + ISigVerifier
-  /ZKNOX_falcon\.sol$/,       // needs sstore2 + ISigVerifier
-  /ZKNOX_epervier\.sol$/,     // needs forge-std/Test.sol
-  /ZKNOX_ethepervier\.sol$/,  // needs forge-std/Test.sol
-  /ZKNOX_display\.sol$/,      // needs forge-std/Test.sol
-  /ZKNOX_PythonSigner\.sol$/, // needs forge-std/Test.sol
+  /DFVRF_ethfalcon\.sol$/,    // needs sstore2 + ISigVerifier
+  /DFVRF_falcon\.sol$/,       // needs sstore2 + ISigVerifier
+  /DFVRF_epervier\.sol$/,     // needs forge-std/Test.sol
+  /DFVRF_ethepervier\.sol$/,  // needs forge-std/Test.sol
+  /DFVRF_display\.sol$/,      // needs forge-std/Test.sol
+  /DFVRF_PythonSigner\.sol$/, // needs forge-std/Test.sol
   /BaseScript\.sol$/,
   /DeployEPERVIER/,
   /ETHFalcon_Recursive\.sol$/,
   /NTT_Recursive\.sol$/,
-  /ZKNOX_falcon_deploy\.sol$/,
+  /DFVRF_falcon_deploy\.sol$/,
 ];
 
 subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS, async (_, __, runSuper) => {

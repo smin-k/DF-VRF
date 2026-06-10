@@ -1,19 +1,19 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_epervier.sol
+// FILE: DFVRF_epervier.sol
 // Description: verify falcon core component
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
-import "./ZKNOX_falcon_utils.sol";
-import "./ZKNOX_NTT_falcon.sol";
-import "./ZKNOX_HashToPoint.sol";
+import "./DFVRF_falcon_utils.sol";
+import "./DFVRF_NTT_falcon.sol";
+import "./DFVRF_HashToPoint.sol";
 
 /// @title ZKNOX_epervier
 /// @notice A contract to verify FALCON signatures with public key recovery
-/// @dev The format of function is compacted, not compressed, for KATS verification look at dedicated ZKNOX_falconKATS.sol
+/// @dev The format of function is compacted, not compressed, for KATS verification look at dedicated DFVRF_falconKATS.sol
 
 /// @custom:experimental This library is not audited yet, do not use in production.
 contract ZKNOX_epervier {
@@ -44,7 +44,7 @@ contract ZKNOX_epervier {
 
         // (s1,s2) must be short
         uint256 norm = 0;
-        // As (σ1,σ2) are given with positive values, small negative values are actually large (close to q).
+        // As (?1,?2) are given with positive values, small negative values are actually large (close to q).
 
         assembly {
             //normalization

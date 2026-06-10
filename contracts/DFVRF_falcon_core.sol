@@ -1,13 +1,13 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_falcon_core.sol
+// FILE: DFVRF_falcon_core.sol
 // Description: Core Falcon-512 signature verification algorithm
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "./ZKNOX_falcon_utils.sol";
-import "./ZKNOX_NTT_falcon.sol";
+import "./DFVRF_falcon_utils.sol";
+import "./DFVRF_NTT_falcon.sol";
 
 /// @notice Validates that all coefficients in a polynomial are within the field modulus q
 /// @dev Checks each coefficient < q=12289, early exit on first violation for gas efficiency
@@ -57,11 +57,10 @@ function falcon_normalize(
 {
     uint256 norm = 0;
 
-    // OPTIMIZATION: Added memory-safe annotation, use lt instead of gt for clarity
     assembly ("memory-safe") {
         for { let offset := 32 } lt(offset, 16384) { offset := add(offset, 32) } {
-            let s1i := addmod(mload(add(hashed, offset)), sub(q, mload(add(s1, offset))), q) //s1[i] = addmod(hashed[i], q - s1[i], q);
-            let cond := gt(s1i, qs1) //s1[i] > qs1 ?
+            let s1i := addmod(mload(add(hashed, offset)), sub(q, mload(add(s1, offset))), q)
+            let cond := gt(s1i, qs1)
             s1i := add(mul(cond, sub(q, s1i)), mul(sub(1, cond), s1i))
             norm := add(norm, mul(s1i, s1i))
         }
@@ -113,7 +112,7 @@ function falcon_core(
 
     result = false;
 
-    uint256[] memory s1 = _ZKNOX_NTT_Expand(_ZKNOX_NTT_HALFMUL_Compact(s2, ntth)); //build on top of specific NTT
+    uint256[] memory s1 = _ZKNOX_NTT_HALFMUL_ExpandedResult(s2, ntth);
 
     return falcon_normalize(s1, s2, hashed);
 }

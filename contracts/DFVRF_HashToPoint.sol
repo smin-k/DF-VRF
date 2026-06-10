@@ -1,13 +1,13 @@
 // Copyright (C) 2026 - ZKNOX
 // License: This software is licensed under MIT License
 // This Code may be reused including this header, license and copyright notice.
-// FILE: ZKNOX_HashToPoint.sol
+// FILE: DFVRF_HashToPoint.sol
 // Description: Hash-to-point functions for Falcon signature verification
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "./ZKNOX_falcon_utils.sol";
-import "./ZKNOX_shake.sol";
+import "./DFVRF_falcon_utils.sol";
+import "./DFVRF_shake.sol";
 
 /// @dev Mask for extracting 2 bytes (16 bits) from uint256
 uint256 constant MASK_2BYTES = uint256(0xFFFF);

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
-import "../src/ZKNOX_NTT.sol";
-import "../src/ZKNOX_NTT_falcon.sol";
+import "../src/DFVRF_NTT.sol";
+import "../src/DFVRF_NTT_falcon.sol";
 
 contract NTTTest is Test {
     //exemple of stateless initialisation, no external contract provided
