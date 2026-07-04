@@ -33,6 +33,9 @@
 
 #define MKN(logn)   ((size_t)1 << (logn))
 
+/* Global counter: incremented once per new_keygen for(;;) iteration. */
+int falcon_keygen_loop_iters = 0;
+
 /* ==================================================================== */
 /*
  * Modular arithmetics.
@@ -4527,6 +4530,7 @@ Zf(new_keygen)(inner_shake256_context *rng,
 	 * NTRU equation solver requires it).
 	 */
 	for (;;) {
+		falcon_keygen_loop_iters++;
 		fpr *rt1, *rt2, *rt3;
 		fpr bnorm;
 		uint32_t normf, normg, norm;

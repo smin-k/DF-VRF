@@ -3,6 +3,7 @@ package falcon
 import (
 	"crypto/rand"
 	"fmt"
+	"math"
 	"testing"
 )
 
@@ -100,6 +101,78 @@ func BenchmarkVRFVerifyKeccak(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// TestKeygenRejectionLoop measures the for(;;) iteration count in new_keygen
+// across many key generations and reports the distribution.
+//
+// Interpretation: norm-bound acceptance alone would suggest E[k] around 4,
+// but the actual loop also includes GS-bound checks and NTRU-solver failures.
+// The parity filter (poly_small_mkgauss_choose) operates at coefficient level
+// and does not contribute full-loop iterations.
+//
+// Run with: go test -v -run TestKeygenRejectionLoop
+func TestKeygenRejectionLoop(t *testing.T) {
+	const samples = 1000
+	seed := make([]byte, 64)
+	rand.Read(seed)
+
+	counts := make([]int, samples)
+	hist := make(map[int]int)
+
+	for i := 0; i < samples; i++ {
+		seed[0] = byte(i)
+		seed[1] = byte(i >> 8)
+		keygenCounterReset()
+		if _, _, err := GenerateKey(seed); err != nil {
+			t.Fatal(err)
+		}
+		c := keygenCounterGet()
+		counts[i] = c
+		hist[c]++
+	}
+
+	// Compute mean and stdev.
+	var sum float64
+	for _, c := range counts {
+		sum += float64(c)
+	}
+	mean := sum / float64(samples)
+
+	var varAcc float64
+	minC, maxC := counts[0], counts[0]
+	for _, c := range counts {
+		d := float64(c) - mean
+		varAcc += d * d
+		if c < minC {
+			minC = c
+		}
+		if c > maxC {
+			maxC = c
+		}
+	}
+	stdev := math.Sqrt(varAcc / float64(samples))
+
+	fmt.Printf("\n=== DFalcon new_keygen Rejection Loop (n=%d) ===\n", samples)
+	fmt.Printf("Iterations per keygen: min=%d  max=%d  mean=%.2f  stdev=%.2f\n",
+		minC, maxC, mean, stdev)
+	fmt.Printf("\nHistogram (iter → count):\n")
+	for k := minC; k <= maxC; k++ {
+		if hist[k] == 0 {
+			continue
+		}
+		bar := ""
+		for b := 0; b < hist[k]*40/samples; b++ {
+			bar += "#"
+		}
+		fmt.Printf("  %2d: %4d  %s\n", k, hist[k], bar)
+	}
+
+	// Geometric(p) fit: p ≈ 1/mean; E[k] = 1/p.
+	p := 1.0 / mean
+	fmt.Printf("\nGeometric fit: p=%.3f  E[k]=%.2f\n", p, mean)
+	fmt.Printf("Note: parity filter (poly_small_mkgauss_choose) adds 0 full-loop iterations;\n")
+	fmt.Printf("      rejections come from norm-bound + GS-bound + NTRU-solver failures.\n")
 }
 
 // TestProofSizeDistribution prints proof size statistics over many samples.

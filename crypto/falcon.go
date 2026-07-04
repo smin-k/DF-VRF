@@ -351,3 +351,14 @@ func (pub *PublicKey) NTTCoefficients() ([N]uint16, error) {
 	C.falcon_ntt_forward((*C.uint16_t)(unsafe.Pointer(&h[0])), C.uint(C.FALCON_DET512_LOGN))
 	return h, nil
 }
+
+// keygenCounterReset resets the new_keygen for(;;) loop iteration counter.
+func keygenCounterReset() {
+	C.falcon_keygen_counter_reset()
+}
+
+// keygenCounterGet returns the number of for(;;) iterations new_keygen executed
+// since the last keygenCounterReset call.
+func keygenCounterGet() int {
+	return int(C.falcon_keygen_counter_get())
+}

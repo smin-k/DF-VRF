@@ -5,6 +5,16 @@
 #include "inner.h"
 #include "deterministic.h"
 
+extern int falcon_keygen_loop_iters;
+
+void falcon_keygen_counter_reset(void) {
+	falcon_keygen_loop_iters = 0;
+}
+
+int falcon_keygen_counter_get(void) {
+	return falcon_keygen_loop_iters;
+}
+
 #define FALCON_DET512_TMPSIZE_KEYGEN FALCON_TMPSIZE_KEYGEN(FALCON_DET512_LOGN)
 #define FALCON_DET512_TMPSIZE_SIGNDYN FALCON_TMPSIZE_SIGNDYN(FALCON_DET512_LOGN)
 #define FALCON_DET512_TMPSIZE_VERIFY FALCON_TMPSIZE_VERIFY(FALCON_DET512_LOGN) 

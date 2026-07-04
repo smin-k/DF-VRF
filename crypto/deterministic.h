@@ -126,6 +126,14 @@ int falcon_det512_convert_compressed_to_ct(void *sig_ct,
 int falcon_det512_get_salt_version(const void* sig);
 
 /*
+ * Keygen rejection-loop instrumentation.
+ * Reset before each GenerateKey call; read back afterward to get the
+ * number of for(;;) iterations that new_keygen executed.
+ */
+void falcon_keygen_counter_reset(void);
+int  falcon_keygen_counter_get(void);
+
+/*
  * Unpack a det1024 public key representing a ring element h to its
  * vector of polynomial coefficients, i.e.,
  *
